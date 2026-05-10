@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CPTE Tracker</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#111827">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CPTE Tracker">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="loading-screen">
+  <div style="font-size:14px;color:#555;font-weight:500">Restoring your progress...</div>
+  <div style="display:flex;gap:7px">
+    <div class="loading-dot"></div>
+    <div class="loading-dot"></div>
+    <div class="loading-dot"></div>
+  </div>
+</div>
+
+<div id="app" style="display:none">
+
+<div class="motiv">
+  <div class="motiv-accent"></div>
+  <div class="motiv-icons" id="motiv-icons">🚗 👜 💎</div>
+  <div class="motiv-main" id="motiv-quote">She doesn't chase — she arrives.</div>
+  <div class="motiv-sub">DAY <span id="motiv-day">1</span> · <span id="motiv-days">93</span> DAYS TO AUG 10 · LET'S GO 🔑</div>
+</div>
+
+<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+  <div>
+    <div style="font-size:18px;font-weight:700;color:#1a1a1a">CPTE tracker</div>
+    <div style="font-size:11px;color:#666;margin-top:2px">199 cases · 88 lecs · saves permanently</div>
+  </div>
+  <span class="badge" style="background:#1A4D2E;color:#B8F0CC">🎯 Aug 10 2026</span>
+</div>
+
+<div class="tab-wrap">
+  <div class="tab-bar" id="tab-bar">
+    <button class="tb active" data-tab="today">Today</button>
+    <button class="tb" data-tab="calendar">📅 Calendar</button>
+    <button class="tb" data-tab="practice" style="border-color:#c0392b;color:#c0392b">Practice ★</button>
+    <button class="tb" data-tab="progress">Progress</button>
+    <button class="tb" data-tab="cardio">Cardio</button>
+    <button class="tb" data-tab="pulmo">Pulmo</button>
+    <button class="tb" data-tab="msk">MSK</button>
+    <button class="tb" data-tab="neuro">Neuro</button>
+    <button class="tb" data-tab="other">Other</button>
+    <button class="tb" data-tab="mcq">MCQ lecs</button>
+    <button class="tb" data-tab="log">Daily log</button>
+  </div>
+</div>
+
+<div id="sec-today" class="sec active">
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
+    <div class="metric"><div class="mv"><span id="m-mcq">0</span><span class="mv-tot">/88</span></div><div class="ml">MCQ done</div></div>
+    <div class="metric"><div class="mv"><span id="m-cases">0</span><span class="mv-tot">/199</span></div><div class="ml">Confident</div></div>
+    <div class="metric"><div class="mv" id="m-streak">0</div><div class="ml">Streak 🔥</div></div>
+    <div class="metric"><div class="mv"><span id="m-days">93</span><span class="mv-tot">/93</span></div><div class="ml">Days left</div></div>
+  </div>
+  <div class="phase-banner">
+    <div><div class="phase-title" id="phase-title">Phase 1 — Practice cases (Days 1–10)</div><div class="phase-sub" id="phase-sub">Verbalization only · no MCQ · 5–6 cases/day</div></div>
+    <span class="badge" style="background:rgba(255,255,255,0.15);color:#B8F0CC;font-size:11px" id="phase-day-badge">Day 1</span>
+  </div>
+  <div class="today-case-card">
+    <div class="today-label">TODAY'S CASE</div>
+    <div class="today-case-text" id="today-case">Loading...</div>
+    <div class="today-sub" id="today-mcq-sub"></div>
+    <div class="today-sub green" id="today-recall-sub"></div>
+  </div>
+  <div class="card">
+    <div class="lbl">Today's schedule 📅</div>
+    <div class="tblock"><span class="tlbl">5:30–8:30am</span><div class="tc2"><div class="tt">🎓 Instructor session</div><div class="td">Akshay / Mamta / Pankti — check weekly schedule</div><div class="chk-row" onclick="toggleChk(0)"><div class="chk-box" id="chk-0"><span class="chk-mark">✓</span></div><span class="chk-lbl" id="cl0">Session attended</span></div></div></div>
+    <div class="tblock"><span class="tlbl">8:30–11am</span><div class="tc2"><div class="tt">😴 Rest</div><div class="td">Post-morning recovery — you earned it</div></div></div>
+    <div class="tblock"><span class="tlbl">11am–12pm</span><div class="tc2">
+      <div class="tt">🔁 Recall hour</div>
+      <div id="rcl-box" class="rcl" style="display:none"><div style="font-size:10px;color:#1A4D2E;font-weight:700;margin-bottom:3px">YESTERDAY'S CASE</div><div style="font-size:13px;font-weight:600;color:#1A4D2E" id="rcl-name">—</div><div style="font-size:10px;color:#27500A;margin-top:2px">No notes · timed · end-to-end · exam conditions 💪</div></div>
+      <div id="rcl-pending" class="rcp">No recall on Day 1 — starts Day 2 onwards</div>
+      <div class="chk-row" onclick="toggleChk(1)"><div class="chk-box" id="chk-1"><span class="chk-mark">✓</span></div><span class="chk-lbl" id="cl1">Recall done</span></div>
+    </div></div>
+    <div class="tblock"><span class="tlbl">12–3pm</span><div class="tc2">
+      <div class="tt" id="mcq-title">📖 MCQ lecture (3 hrs)</div>
+      <div class="td" id="mcq-detail">Synced to today's system</div>
+      <div id="mcq-today-box" class="mcq-today-box" style="display:none"><div class="mcq-today-text" id="mcq-today-text"></div></div>
+      <div class="chk-row" onclick="toggleChk(2)"><div class="chk-box" id="chk-2"><span class="chk-mark">✓</span></div><span class="chk-lbl" id="cl2">MCQ done</span></div>
+    </div></div>
+    <div class="tblock"><span class="tlbl">3–3:30pm</span><div class="tc2"><div class="tt">☕ Break</div><div class="td">Breathe · hydrate · step away 💧</div></div></div>
+    <div class="tblock"><span class="tlbl">3:30–5:30pm</span><div class="tc2">
+      <div class="tt">🗣️ Verbalization prep</div>
+      <div class="td">Today's cases — practice aloud · no notes · speak it like exam day</div>
+      <div id="verb-list" class="verb-list" style="display:none"></div>
+      <div class="chk-row" onclick="toggleChk(3)"><div class="chk-box" id="chk-3"><span class="chk-mark">✓</span></div><span class="chk-lbl" id="cl3">Case prep done</span></div>
+    </div></div>
+    <div class="tblock"><span class="tlbl">5:30–6pm</span><div class="tc2"><div class="tt">⏳ Buffer</div><div class="td">Catch up or preview tomorrow</div></div></div>
+    <div class="tblock"><span class="tlbl">6–9:30pm</span><div class="tc2"><div class="tt">🚗 Personal time</div><div class="td">Recharge — do something that feels like you 💎</div></div></div>
+    <div class="tblock"><span class="tlbl">9:30–11pm</span><div class="tc2"><div class="tt">👯 Friends practice</div><div class="td">Not counted in study hours 🔑</div></div></div>
+  </div>
+</div>
+
+<div id="sec-calendar" class="sec">
+  <div class="card">
+    <div class="lbl">Full 83-day plan</div>
+    <div class="cal-filter">
+      <button onclick="calFilter('all',this)" class="active">All days</button>
+      <button onclick="calFilter('phase1',this)">Phase 1</button>
+      <button onclick="calFilter('cardio',this)">Cardio</button>
+      <button onclick="calFilter('pulmo',this)">Pulmo</button>
+      <button onclick="calFilter('msk',this)">MSK</button>
+      <button onclick="calFilter('neuro',this)">Neuro</button>
+      <button onclick="calFilter('other',this)">Other</button>
+    </div>
+    <div id="cal-content" style="max-height:600px;overflow-y:auto"></div>
+  </div>
+</div>
+
+<div id="sec-practice" class="sec"><div class="card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div class="lbl" style="margin:0">Practice ★ — Days 1–10</div><span class="badge" style="background:#1A4D2E;color:#B8F0CC;font-size:11px" id="practice-badge">0/57</span></div><div style="font-size:11px;color:#888;margin-bottom:10px">5–6 cases/day · master these first 🎯</div><div id="practice-list"></div></div></div>
+
+<div id="sec-progress" class="sec">
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div class="lbl" style="margin:0">Progress by system</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:10px"><span style="color:#888">⬜ Not started</span><span style="color:#1A3A5C">🟦 Read</span><span style="color:#7A4800">🟧 Revision</span><span style="color:#1A4D2E">🟩 Confident</span></div>
+    </div>
+    <div class="spr"><div class="spt"><span class="sn">Practice ★ (57)</span><div class="ms" id="mini-practice"></div><span style="font-size:11px;color:#888" id="cnt-practice">0/57</span></div><div class="prog-bg"><div class="prog-fill" id="bar-practice" style="width:0%;background:#c0392b"></div></div><div class="sc" id="sc-practice"></div></div>
+    <div class="spr"><div class="spt"><span class="sn">Cardio (25)</span><div class="ms" id="mini-cardio"></div><span style="font-size:11px;color:#888" id="cnt-cardio">0/25</span></div><div class="prog-bg"><div class="prog-fill" id="bar-cardio" style="width:0%;background:#E24B4A"></div></div><div class="sc" id="sc-cardio"></div></div>
+    <div class="spr"><div class="spt"><span class="sn">Pulmo (4)</span><div class="ms" id="mini-pulmo"></div><span style="font-size:11px;color:#888" id="cnt-pulmo">0/4</span></div><div class="prog-bg"><div class="prog-fill" id="bar-pulmo" style="width:0%;background:#1D9E75"></div></div><div class="sc" id="sc-pulmo"></div></div>
+    <div class="spr"><div class="spt"><span class="sn">MSK (49)</span><div class="ms" id="mini-msk"></div><span style="font-size:11px;color:#888" id="cnt-msk">0/49</span></div><div class="prog-bg"><div class="prog-fill" id="bar-msk" style="width:0%;background:#534AB7"></div></div><div class="sc" id="sc-msk"></div></div>
+    <div class="spr"><div class="spt"><span class="sn">Neuro (51)</span><div class="ms" id="mini-neuro"></div><span style="font-size:11px;color:#888" id="cnt-neuro">0/51</span></div><div class="prog-bg"><div class="prog-fill" id="bar-neuro" style="width:0%;background:#185FA5"></div></div><div class="sc" id="sc-neuro"></div></div>
+    <div class="spr"><div class="spt"><span class="sn">Other (13)</span><div class="ms" id="mini-other"></div><span style="font-size:11px;color:#888" id="cnt-other">0/13</span></div><div class="prog-bg"><div class="prog-fill" id="bar-other" style="width:0%;background:#BA7517"></div></div><div class="sc" id="sc-other"></div></div>
+    <div style="padding-top:10px;margin-top:6px;border-top:1px solid #eee">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;font-weight:500"><span>MCQ lectures 📚</span><span id="mcq-count">0/88</span></div>
+      <div class="prog-bg"><div class="prog-fill" id="bar-mcq-ov" style="width:0%;background:#BA7517"></div></div>
+      <div class="sc" id="sc-mcq-ov"></div>
+    </div>
+  </div>
+</div>
+
+<div id="sec-cardio" class="sec"><div class="card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><div class="lbl" style="margin:0">Cardio — 25 cases ❤️</div><span class="badge" style="background:#1A4D2E;color:#B8F0CC;font-size:11px" id="cardio-badge">0/25</span></div><div id="cardio-list"></div></div></div>
+<div id="sec-pulmo" class="sec"><div class="card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><div class="lbl" style="margin:0">Pulmo — 4 cases 🫁</div><span class="badge" style="background:#1A4D2E;color:#B8F0CC;font-size:11px" id="pulmo-badge">0/4</span></div><div id="pulmo-list"></div></div></div>
+<div id="sec-msk" class="sec"><div class="card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><div class="lbl" style="margin:0">MSK — 49 cases 🦴</div><span class="badge" style="background:#1A4D2E;color:#B8F0CC;font-size:11px" id="msk-badge">0/49</span></div><div style="font-size:11px;color:#888;margin-bottom:10px">Tap group to expand</div><div id="msk-list"></div></div></div>
+<div id="sec-neuro" class="sec"><div class="card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><div class="lbl" style="margin:0">Neuro — 51 cases 🧠</div><span class="badge" style="background:#1A4D2E;color:#B8F0CC;font-size:11px" id="neuro-badge">0/51</span></div><div style="font-size:11px;color:#888;margin-bottom:10px">Tap group to expand</div><div id="neuro-list"></div></div></div>
+<div id="sec-other" class="sec"><div class="card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div class="lbl" style="margin:0">Other / Verb 2 PPT — 13 cases</div><span class="badge" style="background:#1A4D2E;color:#B8F0CC;font-size:11px" id="other-badge">0/13</span></div><div style="font-size:11px;color:#888;margin-bottom:10px">Cases 11–13 in progress</div><div id="other-list"></div></div></div>
+
+<div id="sec-mcq" class="sec">
+  <div class="card"><div class="lbl">Cardio MCQ — 7 lecs ❤️ (Days 11–17)</div><div id="mcq-c-list"></div></div>
+  <div class="card"><div class="lbl">Pulmo MCQ — 6 lecs 🫁 (Days 18–23)</div><div id="mcq-p-list"></div></div>
+  <div class="card"><div class="lbl">MSK MCQ — 30 lecs 🦴 (Days 24–53)</div><div id="mcq-m-list"></div></div>
+  <div class="card"><div class="lbl">Neuro MCQ — 18 lecs 🧠 (Days 54–71)</div><div id="mcq-n-list"></div></div>
+  <div class="card"><div class="lbl">Other system MCQ — 11 lecs (Days 72–80)</div><div id="mcq-o-list"></div></div>
+  <div class="card"><div class="lbl">Ethics MCQ — 15 lecs ⚖️ (Days 81–83)</div><div id="mcq-e-list"></div></div>
+</div>
+
+<div id="sec-log" class="sec">
+  <div class="card">
+    <div class="lbl">Log yesterday's status 📝</div>
+    <textarea id="log-input" placeholder="What got done? What didn't? Any swaps or spillover?"></textarea>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center">
+      <select id="log-status"><option value="good">✅ On track</option><option value="behind">😅 Fell behind</option><option value="ahead">🚀 Ahead</option></select>
+      <button class="save-btn" onclick="saveLog()">Save + update plan ↗</button>
+    </div>
+  </div>
+  <div class="card"><div class="lbl">Log history</div><div id="log-list"><div style="font-size:12px;color:#888">No logs yet.</div></div></div>
+</div>
+
+</div><!-- end #app -->
+
+<script src="app.js"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('./service-worker.js')
+      .then(function() { console.log('Service Worker Registered'); })
+      .catch(function(err) { console.log('SW failed', err); });
+  });
+}
+</script>
+</body>
+</html>
