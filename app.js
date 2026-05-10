@@ -60,12 +60,21 @@ function loadFromFirestore(uid){
     .catch(function(e){console.error('Firestore load:',e);});
 }
 
+function showSignInOverlay(){document.getElementById('signin-overlay').classList.add('visible');}
+function hideSignInOverlay(){document.getElementById('signin-overlay').classList.remove('visible');}
+function dismissSignIn(){hideSignInOverlay();}
+
 // Bridge: Firebase module script fires this event when auth state changes
 window.addEventListener('auth-state-changed',function(e){
   var user=e.detail.user;
   currentUser=user;
   updateAuthUI(user);
-  if(user&&window.firebaseDB){loadFromFirestore(user.uid);}
+  if(user){
+    hideSignInOverlay();
+    if(window.firebaseDB){loadFromFirestore(user.uid);}
+  } else {
+    showSignInOverlay();
+  }
 });
 
 var CS={};
