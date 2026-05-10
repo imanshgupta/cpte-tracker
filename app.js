@@ -1,7 +1,72 @@
-// ── STORAGE: uses localStorage so it persists across app restarts ──
+// ── STORAGE ──
 var SK='cpte_tracker_v1';
-function save(key,val){try{localStorage.setItem(SK+'_'+key,JSON.stringify(val));}catch(e){}}
+
+function save(key,val){
+  try{localStorage.setItem(SK+'_'+key,JSON.stringify(val));}catch(e){}
+  if(window.firebaseDB && currentUser){
+    var patch={};patch[key]=val;
+    window.firestoreSetDoc(
+      window.firestoreDoc(window.firebaseDB,'users',currentUser.uid),
+      patch,{merge:true}
+    ).catch(function(e){console.error('Firestore write:',e);});
+  }
+}
+
 function load(key,def){try{var v=localStorage.getItem(SK+'_'+key);return v!=null?JSON.parse(v):def;}catch(e){return def;}}
+
+// ── AUTHENTICATION ──
+var currentUser = null;
+
+function handleAuth(){
+  if(currentUser){
+    window.signOut(window.firebaseAuth).catch(function(e){console.error(e);});
+  } else {
+    window.signInWithPopup(window.firebaseAuth,window.firebaseProvider)
+      .catch(function(e){console.error('Sign in error:',e);});
+  }
+}
+
+function updateAuthUI(user){
+  var btn=document.getElementById('auth-btn');
+  if(!btn)return;
+  if(user){
+    btn.textContent='Sign Out ('+user.displayName+')';
+    btn.classList.add('signed-in');
+  } else {
+    btn.textContent='Sign In with Google';
+    btn.classList.remove('signed-in');
+  }
+}
+
+function loadFromFirestore(uid){
+  window.firestoreGetDoc(window.firestoreDoc(window.firebaseDB,'users',uid))
+    .then(function(snap){
+      if(!snap.exists())return;
+      var d=snap.data();
+      if(d.states){CS=d.states;try{localStorage.setItem(SK+'_states',JSON.stringify(CS));}catch(e){}}
+      if(d.chk){chkStates=d.chk;try{localStorage.setItem(SK+'_chk',JSON.stringify(chkStates));}catch(e){}}
+      if(d.logs){try{localStorage.setItem(SK+'_logs',JSON.stringify(d.logs));}catch(e){}}
+      if(d.streak!==undefined){try{localStorage.setItem(SK+'_streak',JSON.stringify(d.streak));}catch(e){}}
+      renderAll();
+      chkStates.forEach(function(v,i){
+        var box=document.getElementById('chk-'+i);var lbl=document.getElementById('cl'+i);
+        if(box){if(v)box.classList.add('checked');else box.classList.remove('checked');}
+        if(lbl){if(v)lbl.classList.add('done');else lbl.classList.remove('done');}
+      });
+      renderLogs(d.logs||[]);
+      document.getElementById('m-streak').textContent=d.streak||0;
+      updateAll();
+    })
+    .catch(function(e){console.error('Firestore load:',e);});
+}
+
+// Bridge: Firebase module script fires this event when auth state changes
+window.addEventListener('auth-state-changed',function(e){
+  var user=e.detail.user;
+  currentUser=user;
+  updateAuthUI(user);
+  if(user&&window.firebaseDB){loadFromFirestore(user.uid);}
+});
 
 var CS={};
 var chkStates=[false,false,false,false];

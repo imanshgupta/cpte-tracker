@@ -14,6 +14,41 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 
 <link rel="stylesheet" href="styles.css">
+
+<!-- Firebase -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+  import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBOv9AkoHLMUUJ3AcbKFMOHAY4Jt_VLNiQ",
+    authDomain: "trackerapp-a59a4.firebaseapp.com",
+    projectId: "trackerapp-a59a4",
+    storageBucket: "trackerapp-a59a4.firebasestorage.app",
+    messagingSenderId: "943420755689",
+    appId: "1:943420755689:web:08e8b8b773c0da20d7aa78"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const provider = new GoogleAuthProvider();
+
+  window.firebaseAuth = auth;
+  window.firebaseProvider = provider;
+  window.firebaseDB = db;
+  window.signInWithPopup = signInWithPopup;
+  window.signOut = signOut;
+  window.firestoreDoc = doc;
+  window.firestoreSetDoc = setDoc;
+  window.firestoreGetDoc = getDoc;
+
+  // Relay auth state changes to app.js via a custom event (module ↔ classic script bridge)
+  onAuthStateChanged(auth, function(user) {
+    window.dispatchEvent(new CustomEvent('auth-state-changed', { detail: { user: user } }));
+  });
+</script>
 </head>
 <body>
 
@@ -40,7 +75,10 @@
     <div style="font-size:18px;font-weight:700;color:#1a1a1a">CPTE tracker</div>
     <div style="font-size:11px;color:#666;margin-top:2px">199 cases · 88 lecs · saves permanently</div>
   </div>
-  <span class="badge" style="background:#1A4D2E;color:#B8F0CC">🎯 Aug 10 2026</span>
+  <div style="display:flex;gap:8px;align-items:center">
+    <button id="auth-btn" class="auth-btn" onclick="handleAuth()">Sign In</button>
+    <span class="badge" style="background:#1A4D2E;color:#B8F0CC">🎯 Aug 10 2026</span>
+  </div>
 </div>
 
 <div class="tab-wrap">
