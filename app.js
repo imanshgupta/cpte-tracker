@@ -72,9 +72,8 @@ window.addEventListener('auth-state-changed',function(e){
   if(user){
     hideSignInOverlay();
     if(window.firebaseDB){loadFromFirestore(user.uid);}
-  } else {
-    showSignInOverlay();
   }
+  // overlay stays visible if no user — it's shown by default in HTML
 });
 
 var CS={};
