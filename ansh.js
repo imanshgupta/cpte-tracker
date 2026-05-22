@@ -324,12 +324,18 @@ const WEEKS = [
 
 // ─── STATE ─────────────────────────────────────────────────────────────────
 
+function getDefaultTracks() {
+  const t = {};
+  ['java','spring','sql','sd','cloud'].forEach(k => { t[k] = {}; });
+  return t;
+}
+
 function getDefaultState() {
   const topics = {};
   GFG_MODULES.forEach(m => m.topics.forEach(t => {
     topics[t.id] = {vc:0, pc:0};
   }));
-  return {version:'2.0', gfg:{topics}, dailyChecks:{}};
+  return {version:'2.0', gfg:{topics}, dailyChecks:{}, tracks:getDefaultTracks()};
 }
 
 function loadState() {
@@ -339,6 +345,7 @@ function loadState() {
     const s = JSON.parse(raw);
     if (!s.dailyChecks) s.dailyChecks = {};
     if (!s.gfg) { const d = getDefaultState(); s.gfg = d.gfg; }
+    if (!s.tracks) s.tracks = getDefaultTracks();
     return s;
   } catch(e) { return getDefaultState(); }
 }
@@ -346,6 +353,7 @@ function loadState() {
 function saveState(s) {
   s.lastUpdated = new Date().toISOString();
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch(e) {}
+  syncToFirestore(s);
 }
 
 let STATE = loadState();
@@ -385,17 +393,21 @@ function daysBetween(a, b) {
 
 // ─── TABS ──────────────────────────────────────────────────────────────────
 
-function showTab(id) {
+function showTab(id, btn) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tb').forEach(b => b.classList.remove('active'));
   document.getElementById('panel-'+id).classList.add('active');
-  event.target.classList.add('active');
-  if (id === 'today') renderToday();
-  if (id === 'weeks') renderWeeks();
-  if (id === 'gfg') renderGFG();
-  if (id === 'tracks') renderTracks();
+  (btn || event.target).classList.add('active');
+  if (id === 'today')  renderToday();
+  if (id === 'weeks')  renderWeeks();
+  if (id === 'gfg')    renderGFG();
+  if (id === 'java')   renderTrackTab('java');
+  if (id === 'spring') renderTrackTab('spring');
+  if (id === 'sql')    renderTrackTab('sql');
+  if (id === 'sd')     renderTrackTab('sd');
+  if (id === 'cloud')  renderTrackTab('cloud');
   if (id === 'budget') renderBudget();
-  if (id === 'rules') renderRules();
+  if (id === 'rules')  renderRules();
 }
 
 // ─── TRACK BADGE ───────────────────────────────────────────────────────────
@@ -870,15 +882,434 @@ function init() {
   renderToday();
   renderRules();
 
-  // auto-rollover check every minute
+  // Firebase auth relay
+  window.addEventListener('ansh-auth', e => {
+    const user = e.detail.user;
+    const btn = document.getElementById('auth-btn');
+    if (user) {
+      CURRENT_USER = user;
+      if (btn) { btn.textContent = 'Sign Out'; btn.className = 'auth-btn signed-in'; }
+      loadFromFirestore(user.uid);
+    } else {
+      CURRENT_USER = null;
+      if (btn) { btn.textContent = 'Sign In'; btn.className = 'auth-btn'; }
+    }
+  });
+
   let lastDate = todayStr();
   setInterval(() => {
     const now = todayStr();
-    if (now !== lastDate) {
-      lastDate = now;
-      renderToday();
-    }
+    if (now !== lastDate) { lastDate = now; renderToday(); }
   }, 60000);
 }
 
 init();
+
+// ─── FIREBASE ──────────────────────────────────────────────────────────────
+
+let CURRENT_USER = null;
+let _syncTimer = null;
+
+function handleAuth() {
+  if (CURRENT_USER) {
+    window.signOut(window.firebaseAuth).catch(()=>{});
+  } else {
+    window.signInWithPopup(window.firebaseAuth, window.firebaseProvider).catch(()=>{});
+  }
+}
+
+function syncToFirestore(s) {
+  if (!CURRENT_USER) return;
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(async () => {
+    try {
+      const ref = window.firestoreDoc(window.firebaseDB, 'ansh_tracker', CURRENT_USER.uid);
+      await window.firestoreSetDoc(ref, s);
+    } catch(e) { console.warn('Firestore save failed', e); }
+  }, 800);
+}
+
+async function loadFromFirestore(uid) {
+  try {
+    const ref = window.firestoreDoc(window.firebaseDB, 'ansh_tracker', uid);
+    const snap = await window.firestoreGetDoc(ref);
+    if (snap.exists()) {
+      const remote = snap.data();
+      if (!remote.tracks) remote.tracks = getDefaultTracks();
+      if (!remote.dailyChecks) remote.dailyChecks = {};
+      STATE = remote;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(STATE));
+      // re-render active panel
+      const active = document.querySelector('.panel.active');
+      if (active) {
+        const id = active.id.replace('panel-','');
+        const btn = document.querySelector('.tb.active');
+        showTab(id, btn);
+      }
+    }
+  } catch(e) { console.warn('Firestore load failed', e); }
+}
+
+// ─── TRACK TOPICS DATA ─────────────────────────────────────────────────────
+
+const TRACK_DEFS = {
+  java: {
+    name:'Java (Non-GFG)', color:'#e76f51', totalHours:195,
+    groups:[
+      {id:'java-a', name:'Part A · Core Foundations', hours:45, topics:[
+        {id:'java-fundamentals',       name:'Core Java Fundamentals (types, JVM/JRE/JDK, classpath)',        h:4,  p:'V.High'},
+        {id:'java-oop',                name:'OOP Concepts (4 pillars, dispatch, super/this, composition)',    h:8,  p:'V.High'},
+        {id:'java-abstract-interface', name:'Abstract Classes & Interfaces (Java 8 default/static)',          h:4,  p:'V.High'},
+        {id:'java-keywords',           name:'Keywords Deep (static, final, this, super, instanceof)',         h:4,  p:'V.High'},
+        {id:'java-string',             name:'String Handling (pool, immutability, SB vs SBuf, intern)',       h:5,  p:'V.High'},
+        {id:'java-equals-hashcode',    name:'equals() + hashCode() contract deep',                           h:3,  p:'V.High'},
+        {id:'java-exceptions',         name:'Exception Handling (hierarchy, custom, try-with-resources)',     h:6,  p:'V.High'},
+        {id:'java-object-wrapper',     name:'Object class methods + Wrapper classes + autoboxing',            h:3,  p:'High'},
+        {id:'java-generics',           name:'Generics (wildcards, PECS, type erasure, bounded types)',        h:4,  p:'High'},
+        {id:'java-io-nio',             name:'I/O & NIO (basics, Files, Path)',                                h:2,  p:'Medium'},
+        {id:'java-annotations',        name:'Annotations (built-in + custom basics)',                         h:2,  p:'Medium'},
+      ]},
+      {id:'java-b', name:'Part B · Concurrency Mastery', hours:50, topics:[
+        {id:'java-threads-basics',          name:'Threads basics (Thread vs Runnable, lifecycle, daemon)',         h:6, p:'V.High'},
+        {id:'java-sync-volatile-atomic',    name:'synchronized + volatile + atomic classes + CAS',                h:8, p:'V.High'},
+        {id:'java-wait-notify',             name:'wait/notify/notifyAll + Producer-Consumer + BlockingQueue',      h:6, p:'V.High'},
+        {id:'java-executor',               name:'ExecutorService + ThreadPoolExecutor + Callable/Future',         h:8, p:'V.High'},
+        {id:'java-completable-future',      name:'CompletableFuture deep (thenApply/Compose/Combine)',             h:6, p:'V.High'},
+        {id:'java-concurrent-collections',  name:'ConcurrentHashMap, CopyOnWriteArrayList, BlockingQueue variants',h:4, p:'V.High'},
+        {id:'java-locks',                  name:'Lock interface, ReentrantLock, ReadWriteLock, StampedLock',      h:4, p:'High'},
+        {id:'java-coordination',           name:'CountDownLatch, CyclicBarrier, Semaphore, Phaser',               h:3, p:'High'},
+        {id:'java-threadlocal',            name:'ThreadLocal + memory leak pitfalls in pools',                    h:2, p:'High'},
+        {id:'java-concurrency-scenarios',  name:'Race conditions, deadlocks, livelock, starvation',               h:3, p:'V.High'},
+      ]},
+      {id:'java-c', name:'Part C · JVM & Performance', hours:35, topics:[
+        {id:'java-jvm-architecture',       name:'JVM architecture (class loaders, runtime data areas)',           h:4, p:'High'},
+        {id:'java-memory-model',           name:'Memory model (heap, stack, metaspace, GC roots)',                h:5, p:'High'},
+        {id:'java-gc-algorithms',          name:'GC algorithms (G1, ZGC, Shenandoah, Parallel, Serial)',          h:6, p:'High'},
+        {id:'java-jvm-tuning',             name:'JVM tuning flags (-Xms, -Xmx, GC flags, common configs)',        h:3, p:'High'},
+        {id:'java-production-diagnostics', name:'Production diagnostics (thread dump, heap dump, JFR)',            h:6, p:'V.High'},
+        {id:'java-oom-debugging',          name:'OutOfMemoryError types + memory leak debugging',                  h:4, p:'V.High'},
+        {id:'java-performance',            name:'Performance: escape analysis, JIT, string pool, object pooling', h:4, p:'Medium'},
+        {id:'java-reflection',             name:'Reflection + Dynamic proxies (basic awareness for frameworks)',   h:3, p:'Medium'},
+      ]},
+      {id:'java-d', name:'Part D · Modern Java 9–21', hours:30, topics:[
+        {id:'java-9',                    name:'Java 9 (modules awareness, factory methods, private interface methods)', h:3, p:'High'},
+        {id:'java-10-11',                name:'Java 10–11 (var, HttpClient, isBlank/strip/lines)',                      h:3, p:'High'},
+        {id:'java-14-17-records-switch', name:'Java 14–17: switch expressions, text blocks, records',                  h:6, p:'V.High'},
+        {id:'java-17-sealed-pattern',    name:'Java 17: sealed classes, pattern matching for instanceof',               h:4, p:'V.High'},
+        {id:'java-21-virtual-threads',   name:'Java 21: Virtual Threads (Project Loom) ⭐',                             h:8, p:'V.High'},
+        {id:'java-21-pattern-record',    name:'Java 21: pattern matching for switch, record patterns',                  h:3, p:'High'},
+        {id:'java-reactive-awareness',   name:'Reactive awareness: Mono/Flux conceptual (vs virtual threads)',          h:3, p:'Medium'},
+      ]},
+      {id:'java-e', name:'Part E · Design & Quality', hours:25, topics:[
+        {id:'java-solid',               name:'SOLID Principles (deep, with refactoring examples)', h:4, p:'V.High'},
+        {id:'java-patterns-creational', name:'Design Patterns: Creational (Singleton 4 impls, Factory, Builder)', h:5, p:'High'},
+        {id:'java-patterns-structural', name:'Design Patterns: Structural (Adapter, Decorator, Proxy, Facade)',   h:4, p:'High'},
+        {id:'java-patterns-behavioral', name:'Design Patterns: Behavioral (Strategy, Observer, Template, Command)',h:4, p:'High'},
+        {id:'java-clean-code',          name:'DRY/KISS/YAGNI + code smells + refactoring',                        h:2, p:'High'},
+        {id:'java-logging',             name:'Logging (SLF4J, Logback, MDC, correlation IDs)',                    h:3, p:'High'},
+        {id:'java-build-tools',         name:'Build Tools (Maven lifecycle, Gradle basics, dependency resolution)', h:3, p:'Medium'},
+      ]},
+      {id:'java-f', name:'Part F · Testing', hours:10, topics:[
+        {id:'java-junit5',            name:'JUnit 5 (lifecycle, parameterized, assertions)',        h:3, p:'High'},
+        {id:'java-mockito',           name:'Mockito (mock/spy/inject, ArgumentCaptor, verify)',     h:4, p:'High'},
+        {id:'java-testing-patterns',  name:'Testing patterns (AAA, TDD basics, JaCoCo coverage)',  h:3, p:'Medium'},
+      ]},
+    ]
+  },
+
+  spring: {
+    name:'Spring', color:'#6a994e', totalHours:230,
+    groups:[
+      {id:'sp-1', name:'Block 1 · Core (IoC, DI, Beans, AOP)', hours:35, topics:[
+        {id:'spring-ioc-di',      name:'Spring Core / IoC / DI (foundation)',                             h:12, p:'V.High'},
+        {id:'spring-beans',       name:'Spring Beans (lifecycle, scopes, circular deps)',                  h:9,  p:'V.High'},
+        {id:'spring-annotations', name:'Spring Annotations (Component/Service/Autowired/Configuration)',   h:6,  p:'V.High'},
+        {id:'spring-aop',         name:'Spring AOP (proxies, advice types, pointcuts)',                    h:7,  p:'High'},
+        {id:'spring-events',      name:'Spring Application Events (publisher/listener)',                   h:1,  p:'Medium'},
+      ]},
+      {id:'sp-2', name:'Block 2 · MVC + REST + Validation', hours:30, topics:[
+        {id:'spring-mvc',           name:'Spring MVC (DispatcherServlet, lifecycle, annotations)',         h:12, p:'V.High'},
+        {id:'spring-rest-api',      name:'REST API design (status codes, DTOs, versioning, HATEOAS)',      h:8,  p:'V.High'},
+        {id:'spring-validation',    name:'Validation (@Valid, @Validated, custom validators)',              h:4,  p:'V.High'},
+        {id:'spring-error-handling',name:'@ControllerAdvice + @ExceptionHandler + RFC 7807',               h:4,  p:'V.High'},
+        {id:'spring-file-email',    name:'File Handling (MultipartFile) + JavaMailSender',                 h:2,  p:'Medium'},
+      ]},
+      {id:'sp-3', name:'Block 3 · Boot Fundamentals + Internals', hours:25, topics:[
+        {id:'spring-boot-fundamentals', name:'@SpringBootApplication, auto-config, starters',             h:10, p:'V.High'},
+        {id:'spring-boot-config',       name:'application.properties/yml + Profiles + @ConfigurationProperties', h:4, p:'High'},
+        {id:'spring-actuator',          name:'Actuator + custom health indicators',                       h:4,  p:'High'},
+        {id:'spring-boot-internals',    name:'Auto-config flow + custom starters',                        h:7,  p:'High'},
+      ]},
+      {id:'sp-4', name:'Block 4 · Data / JPA / Transactions', hours:30, topics:[
+        {id:'spring-data-jpa',       name:'Spring Data JPA / Hibernate (entities, relationships, fetch types, N+1)', h:18, p:'V.High'},
+        {id:'spring-jdbc-jdbcclient',name:'Spring JDBC + JdbcClient (3.2+)',                              h:3,  p:'Medium'},
+        {id:'spring-transactional',  name:'@Transactional (propagation, isolation, rollback)',             h:5,  p:'V.High'},
+        {id:'spring-locking',        name:'Optimistic vs Pessimistic locking, @Version, @Lock',           h:2,  p:'High'},
+        {id:'spring-connection-pool',name:'HikariCP tuning, multi-datasource, read replicas',             h:2,  p:'High'},
+      ]},
+      {id:'sp-5', name:'Block 5 · Security', hours:20, topics:[
+        {id:'spring-security-basics',    name:'Security filter chain, UserDetailsService, BCrypt',         h:5,  p:'V.High'},
+        {id:'spring-security-jwt',       name:'JWT auth filter (OncePerRequestFilter, token extraction)',  h:6,  p:'V.High'},
+        {id:'spring-security-method',    name:'Method-level security (@PreAuthorize, @PostAuthorize)',     h:3,  p:'V.High'},
+        {id:'spring-security-cors-csrf', name:'CORS configuration, CSRF for stateless apps',              h:3,  p:'High'},
+        {id:'spring-security-oauth2',    name:'OAuth2 awareness (authorization server vs resource server)',h:3,  p:'High'},
+      ]},
+      {id:'sp-6', name:'Block 6 · Microservices + Cloud', hours:25, topics:[
+        {id:'spring-cloud-discovery', name:'Microservices intro, service discovery (Eureka concept)',      h:4,  p:'V.High'},
+        {id:'spring-cloud-gateway',   name:'API Gateway (Spring Cloud Gateway, routes, filters)',          h:5,  p:'V.High'},
+        {id:'spring-inter-service',   name:'Inter-service communication (RestTemplate, WebClient, OpenFeign, RestClient)', h:5, p:'V.High'},
+        {id:'spring-resilience4j',    name:'Resilience4j (Circuit Breaker, Retry, Timeout, Bulkhead)',     h:6,  p:'V.High'},
+        {id:'spring-cloud-config',    name:'Spring Cloud Config (config server, refresh scope)',           h:3,  p:'High'},
+        {id:'spring-saga-pattern',    name:'Saga pattern (orchestration vs choreography)',                 h:2,  p:'High'},
+      ]},
+      {id:'sp-7', name:'Block 7 · Messaging + Caching', hours:25, topics:[
+        {id:'spring-kafka',             name:'Kafka (producer/consumer, manual offset, DLQ, retry topics)', h:13, p:'V.High'},
+        {id:'spring-rabbitmq',          name:'RabbitMQ (lite, compare with Kafka)',                         h:3,  p:'Medium'},
+        {id:'spring-cache-abstraction', name:'Spring Cache abstraction (@Cacheable, @CacheEvict)',          h:4,  p:'High'},
+        {id:'spring-redis',             name:'Redis basics (RedisTemplate, data types, TTL, eviction)',     h:5,  p:'High'},
+      ]},
+      {id:'sp-8', name:'Block 8 · Testing + Observability', hours:15, topics:[
+        {id:'spring-testing-slice',  name:'@SpringBootTest, @WebMvcTest, @DataJpaTest, MockMvc',           h:6,  p:'High'},
+        {id:'spring-testcontainers', name:'TestContainers (real DB integration tests)',                    h:3,  p:'High'},
+        {id:'spring-logging-mdc',    name:'Logging deep (SLF4J, Logback, MDC, correlation IDs)',           h:3,  p:'Medium'},
+        {id:'spring-observability',  name:'Micrometer + Prometheus + Grafana + distributed tracing',       h:3,  p:'High'},
+      ]},
+      {id:'sp-9', name:'Block 9 · Modern Spring 2026', hours:25, topics:[
+        {id:'spring-virtual-threads',  name:'Spring Boot 3.2+ Virtual Threads integration',                h:6,  p:'V.High'},
+        {id:'spring-modulith',         name:'Spring Modulith (modular monolith pattern)',                  h:4,  p:'High'},
+        {id:'spring-native-graalvm',   name:'GraalVM Native Image + Spring Native',                       h:3,  p:'Medium'},
+        {id:'spring-crac',             name:'CRaC (Coordinated Restore at Checkpoint) awareness',          h:2,  p:'Medium'},
+        {id:'spring-async-scheduling', name:'Scheduling (@Scheduled) + @Async + TaskExecutor',             h:4,  p:'High'},
+        {id:'spring-webflux-awareness',name:'Spring WebFlux (Mono/Flux, when vs virtual threads)',         h:3,  p:'Medium'},
+        {id:'spring-ai-awareness',     name:'Spring AI awareness (ChatClient, embeddings, RAG basics)',    h:2,  p:'Low'},
+        {id:'spring-websocket',        name:'WebSocket basics + STOMP',                                    h:1,  p:'Low'},
+      ]},
+    ]
+  },
+
+  sql: {
+    name:'SQL / DB', color:'#a87fb8', totalHours:95,
+    groups:[
+      {id:'sql-core', name:'Core SQL', hours:30, topics:[
+        {id:'sql-fundamentals',   name:'SQL Fundamentals (DDL/DML/DQL/DCL/TCL)',                   h:3,   p:'V.High'},
+        {id:'sql-select',         name:'SELECT Mastery (WHERE, CASE, COALESCE, LIKE)',              h:4,   p:'V.High'},
+        {id:'sql-joins',          name:'Joins (all types, ANTI/SEMI, multi-table)',                 h:6,   p:'V.High'},
+        {id:'sql-aggregations',   name:'Aggregations & Grouping (HAVING, conditional)',             h:4,   p:'V.High'},
+        {id:'sql-subqueries',     name:'Subqueries (scalar, correlated, top-N per group)',          h:4,   p:'V.High'},
+        {id:'sql-ctes',           name:'CTEs (recursive for hierarchies)',                          h:3,   p:'High'},
+        {id:'sql-window',         name:'Window Functions (ROW_NUMBER, LAG/LEAD, frames)',           h:6,   p:'V.High'},
+        {id:'sql-set-ops',        name:'Set Operations (UNION, INTERSECT, EXCEPT)',                 h:1.5, p:'Medium'},
+      ]},
+      {id:'sql-perf', name:'Performance & Design', hours:37, topics:[
+        {id:'sql-indexes',          name:'Indexes & Performance (B-tree, composite, covering)',     h:8,   p:'V.High'},
+        {id:'sql-optimization',     name:'Query Optimization (EXPLAIN ANALYZE, sargable)',          h:6,   p:'V.High'},
+        {id:'sql-transactions',     name:'Transactions & Concurrency (ACID, isolation, MVCC)',      h:6,   p:'V.High'},
+        {id:'sql-normalization',    name:'Normalization & Schema Design (1NF–3NF)',                 h:4,   p:'V.High'},
+        {id:'sql-views',            name:'Views & Materialized Views',                              h:2,   p:'High'},
+        {id:'sql-procs-triggers',   name:'Stored Procs, Functions, Triggers',                      h:2,   p:'Medium'},
+        {id:'sql-migrations',       name:'Migrations (Flyway, Liquibase)',                          h:2,   p:'High'},
+        {id:'sql-interview-problems',name:'Interview SQL Problems (Nth salary, gaps/islands)',      h:8,   p:'V.High'},
+      ]},
+      {id:'sql-advanced', name:'Advanced & Distributed', hours:28, topics:[
+        {id:'sql-db-specific',  name:'DB-specific (MySQL, Postgres, Oracle)',                       h:4,   p:'High'},
+        {id:'sql-nosql',        name:'NoSQL Awareness (MongoDB, Cassandra, Redis)',                 h:5,   p:'High'},
+        {id:'sql-scaling',      name:'Scaling Strategies (replicas, sharding)',                     h:4,   p:'High'},
+        {id:'sql-cap',          name:'CAP Theorem & Distributed DB Basics',                        h:2,   p:'High'},
+        {id:'sql-security',     name:'Security (SQL injection, prepared stmts, RLS)',              h:1.5, p:'High'},
+        {id:'sql-backup-ha',    name:'Backup, Recovery, HA awareness',                             h:1.5, p:'Medium'},
+        {id:'sql-monitoring',   name:'Monitoring & Troubleshooting (slow query, locks)',            h:2,   p:'High'},
+      ]},
+    ]
+  },
+
+  sd: {
+    name:'System Design', color:'#e9c46a', totalHours:85,
+    groups:[
+      {id:'sd-a', name:'Part A · Foundations', hours:15, topics:[
+        {id:'sd-scalability',       name:'Scalability (vertical vs horizontal)',                    h:1, p:'V.High'},
+        {id:'sd-lb',                name:'Load balancing (L4 vs L7, algorithms)',                   h:2, p:'V.High'},
+        {id:'sd-caching',           name:'Caching strategies (cache-aside, write-through, CDN)',    h:3, p:'V.High'},
+        {id:'sd-db-scaling',        name:'Database scaling (replication, sharding, partitioning)',  h:3, p:'V.High'},
+        {id:'sd-cap',               name:'CAP theorem & consistency models',                        h:1, p:'V.High'},
+        {id:'sd-acid-base',         name:'ACID vs BASE',                                            h:1, p:'High'},
+        {id:'sd-message-queues',    name:'Message queues (Kafka vs RabbitMQ vs SQS)',               h:2, p:'V.High'},
+        {id:'sd-consistent-hashing',name:'Consistent hashing',                                     h:1, p:'High'},
+        {id:'sd-bloom-filters',     name:'Bloom filters',                                           h:1, p:'Medium'},
+      ]},
+      {id:'sd-b', name:'Part B · Building Blocks', hours:10, topics:[
+        {id:'sd-api-patterns',    name:'API design patterns (REST, GraphQL, gRPC)',                 h:2, p:'High'},
+        {id:'sd-idempotency',     name:'Idempotency patterns',                                      h:2, p:'V.High'},
+        {id:'sd-rate-limiting',   name:'Rate limiting algorithms',                                  h:2, p:'V.High'},
+        {id:'sd-auth-patterns',   name:'Authentication patterns (JWT, OAuth2, session)',            h:2, p:'High'},
+        {id:'sd-distributed-tx',  name:'Distributed transactions (Saga, 2PC)',                     h:2, p:'High'},
+      ]},
+      {id:'sd-c', name:'Part C · HLD Walkthroughs (10 designs × 3h)', hours:30, topics:[
+        {id:'sd-hld-url-shortener',    name:'URL Shortener',                                        h:3, p:'V.High'},
+        {id:'sd-hld-rate-limiter',     name:'Rate Limiter',                                        h:3, p:'V.High'},
+        {id:'sd-hld-notification',     name:'Notification Service',                                h:3, p:'V.High'},
+        {id:'sd-hld-ecommerce',        name:'E-commerce Order Service (Walmart-style)',             h:3, p:'V.High'},
+        {id:'sd-hld-payment',          name:'Payment Service (PayPal-style)',                       h:3, p:'V.High'},
+        {id:'sd-hld-food-delivery',    name:'Food Delivery (Swiggy-style)',                         h:3, p:'V.High'},
+        {id:'sd-hld-ride-sharing',     name:'Ride-Sharing (Uber-like)',                             h:3, p:'High'},
+        {id:'sd-hld-news-feed',        name:'News Feed / Timeline',                                h:3, p:'High'},
+        {id:'sd-hld-distributed-cache',name:'Distributed Cache / Key-Value Store',                 h:3, p:'High'},
+        {id:'sd-hld-chat',             name:'Chat Application',                                    h:3, p:'High'},
+      ]},
+      {id:'sd-d', name:'Part D · LLD', hours:10, topics:[
+        {id:'sd-lld-fundamentals', name:'LLD fundamentals (UML, class diagrams)',                   h:2, p:'V.High'},
+        {id:'sd-lld-parking-lot',  name:'Parking Lot LLD',                                         h:3, p:'V.High'},
+        {id:'sd-lld-splitwise',    name:'Splitwise LLD',                                           h:3, p:'High'},
+        {id:'sd-lld-cache',        name:'In-memory Cache LLD (with code)',                         h:2, p:'High'},
+      ]},
+      {id:'sd-e', name:'Part E · Framework & Articulation', hours:10, topics:[
+        {id:'sd-reshaded',   name:'RESHADED framework practice',                                    h:2, p:'V.High'},
+        {id:'sd-tradeoffs',  name:'Tradeoff articulation drills (10 classic tradeoffs)',            h:2, p:'V.High'},
+        {id:'sd-capacity',   name:'Capacity estimation (back-of-envelope)',                         h:1, p:'High'},
+      ]},
+    ]
+  },
+
+  cloud: {
+    name:'Cloud / Docker / K8s / AWS', color:'#2a9d8f', totalHours:35,
+    groups:[
+      {id:'cl-docker', name:'Docker', hours:12, topics:[
+        {id:'cloud-docker-basics',      name:'Container vs VM, Dockerfile (FROM/COPY/RUN/CMD/ENTRYPOINT)',   h:4, p:'V.High'},
+        {id:'cloud-docker-compose',     name:'Docker Compose (services, volumes, networks, healthchecks)',   h:3, p:'V.High'},
+        {id:'cloud-docker-networking',  name:'Container networking (bridge, host, overlay)',                 h:2, p:'High'},
+        {id:'cloud-docker-spring-boot', name:'Containerize Spring Boot app (multi-stage builds, JVM flags)', h:3, p:'V.High'},
+      ]},
+      {id:'cl-k8s', name:'Kubernetes', hours:12, topics:[
+        {id:'cloud-k8s-architecture', name:'Architecture (Master/Nodes, kubelet, etcd, API server)',         h:2, p:'High'},
+        {id:'cloud-k8s-workloads',    name:'Pods, Deployments, ReplicaSets, StatefulSets, DaemonSets',       h:3, p:'V.High'},
+        {id:'cloud-k8s-services',     name:'Services (ClusterIP, NodePort, LoadBalancer) + Ingress',         h:2, p:'V.High'},
+        {id:'cloud-k8s-config',       name:'ConfigMaps + Secrets',                                          h:1, p:'V.High'},
+        {id:'cloud-k8s-probes',       name:'Liveness/Readiness/Startup probes',                             h:1, p:'V.High'},
+        {id:'cloud-k8s-hpa',          name:'Horizontal Pod Autoscaler (HPA)',                               h:1, p:'High'},
+        {id:'cloud-k8s-deploy',       name:'Deploy Spring Boot to Minikube/Kind',                           h:2, p:'High'},
+      ]},
+      {id:'cl-aws', name:'Cloud / AWS / CI-CD', hours:11, topics:[
+        {id:'cloud-aws-core',       name:'AWS top services (EC2, S3, RDS, ELB, CloudWatch, IAM)',            h:3, p:'High'},
+        {id:'cloud-aws-containers', name:'AWS containers: ECS, EKS, Fargate, ECR',                          h:2, p:'High'},
+        {id:'cloud-aws-msg-queue',  name:'AWS SQS, SNS basics',                                             h:1, p:'Medium'},
+        {id:'cloud-cicd',           name:'CI/CD with GitHub Actions / Jenkins basics',                      h:3, p:'High'},
+        {id:'cloud-12-factor',      name:'12-Factor App principles',                                        h:1, p:'High'},
+        {id:'cloud-multi-cloud',    name:'AWS vs Azure vs GCP at-a-glance',                                 h:1, p:'Low'},
+      ]},
+    ]
+  },
+};
+
+// ─── TRACK TAB RENDERING ───────────────────────────────────────────────────
+
+function priClass(p) {
+  return {'V.High':'pri-vh', 'High':'pri-h', 'Medium':'pri-m', 'Low':'pri-l'}[p] || 'pri-m';
+}
+
+function calcGroupStats(trackId, group) {
+  const t = STATE.tracks[trackId] || {};
+  let done = 0, prog = 0;
+  group.topics.forEach(tp => {
+    const st = t[tp.id] || 'not-started';
+    if (st === 'done') done++;
+    else if (st === 'in-progress') prog++;
+  });
+  return {done, prog, total: group.topics.length};
+}
+
+function renderTrackTab(trackId) {
+  const def = TRACK_DEFS[trackId];
+  if (!def) return;
+  const el = document.getElementById('panel-'+trackId);
+
+  // overview row per group
+  let totalDone = 0, totalTopics = 0;
+  def.groups.forEach(g => {
+    const s = calcGroupStats(trackId, g);
+    totalDone += s.done; totalTopics += g.topics.length;
+  });
+  const overallPct = totalTopics ? Math.round(totalDone/totalTopics*100) : 0;
+
+  let html = `<div class="card" style="border-left:3px solid ${def.color}">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div>
+        <div class="lbl" style="margin:0;color:${def.color}">${def.name}</div>
+        <div style="font-size:12px;color:var(--dim);font-family:'JetBrains Mono',monospace;margin-top:2px">${def.totalHours}h total · ${totalDone}/${totalTopics} topics done</div>
+      </div>
+      <div style="font-size:24px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${def.color}">${overallPct}%</div>
+    </div>
+    <div class="prog-bg" style="height:8px"><div class="prog-fill" id="overall-bar-${trackId}" style="width:${overallPct}%;background:${def.color};height:8px"></div></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px;margin-top:12px">
+      ${def.groups.map(g => {
+        const s = calcGroupStats(trackId, g);
+        const p = s.total ? Math.round(s.done/s.total*100) : 0;
+        return `<div class="track-overview" style="padding:8px 10px">
+          <div class="to-bar" style="flex:1"><div class="to-bar-fill" style="width:${p}%;background:${def.color}"></div></div>
+          <div style="font-size:10px;color:var(--dim);font-family:'JetBrains Mono',monospace;min-width:32px;text-align:right">${p}%</div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+
+  def.groups.forEach(g => {
+    const s = calcGroupStats(trackId, g);
+    const pct = s.total ? Math.round(s.done/s.total*100) : 0;
+    html += `<div class="track-section">
+      <div class="track-section-hdr">
+        <div>
+          <div class="track-section-title">${g.name}</div>
+          <div style="font-size:10px;color:var(--dim);font-family:'JetBrains Mono',monospace;margin-top:1px">${g.hours}h · ${s.done}/${s.total} done${s.prog?' · '+s.prog+' in progress':''}</div>
+        </div>
+        <div class="track-pct-lbl" style="color:${def.color}">${pct}%</div>
+      </div>
+      <div class="track-section-prog" style="background:var(--surface2)"><div class="fill" id="gbar-${trackId}-${g.id}" style="width:${pct}%;background:${def.color}"></div></div>
+      ${g.topics.map((tp, i) => {
+        const st = (STATE.tracks[trackId]||{})[tp.id] || 'not-started';
+        const cls = st === 'done' ? 's-done' : st === 'in-progress' ? 's-prog' : '';
+        return `<div class="tr-row ${cls}" id="trr-${tp.id}">
+          <div class="tr-num">${String(i+1).padStart(2,'0')}</div>
+          <div class="tr-info">
+            <div class="tr-name">${tp.name}</div>
+            <div class="tr-meta-row">
+              <span class="tr-hours">${tp.h}h</span>
+              <span class="tr-pri ${priClass(tp.p)}">${tp.p}</span>
+            </div>
+          </div>
+          <div class="tr-btns">
+            <button class="trb trb-p" onclick="setTrackTopic('${trackId}','${tp.id}','in-progress','${g.id}')">→ Prog</button>
+            <button class="trb trb-d" onclick="setTrackTopic('${trackId}','${tp.id}','done','${g.id}')">✓ Done</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  });
+
+  el.innerHTML = html;
+}
+
+function setTrackTopic(trackId, topicId, newState, groupId) {
+  if (!STATE.tracks[trackId]) STATE.tracks[trackId] = {};
+  const cur = STATE.tracks[trackId][topicId] || 'not-started';
+  // toggle: clicking same state = back to not-started
+  STATE.tracks[trackId][topicId] = (cur === newState) ? 'not-started' : newState;
+  saveState(STATE);
+
+  const st = STATE.tracks[trackId][topicId];
+  const row = document.getElementById('trr-'+topicId);
+  if (row) {
+    row.className = 'tr-row' + (st==='done'?' s-done':st==='in-progress'?' s-prog':'');
+  }
+  // update group bar + overall bar
+  const def = TRACK_DEFS[trackId];
+  if (!def) return;
+  def.groups.forEach(g => {
+    const s = calcGroupStats(trackId, g);
+    const p = s.total ? Math.round(s.done/s.total*100) : 0;
+    const gb = document.getElementById('gbar-'+trackId+'-'+g.id);
+    if (gb) gb.style.width = p+'%';
+  });
+  let totalDone = 0, totalTopics = 0;
+  def.groups.forEach(g => { const s = calcGroupStats(trackId, g); totalDone+=s.done; totalTopics+=g.topics.length; });
+  const op = totalTopics ? Math.round(totalDone/totalTopics*100) : 0;
+  const ob = document.getElementById('overall-bar-'+trackId);
+  if (ob) ob.style.width = op+'%';
+}
