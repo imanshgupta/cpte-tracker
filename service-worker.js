@@ -1,7 +1,10 @@
-const CACHE_NAME = "cpte-tracker-v3";
+const CACHE_NAME = "cpte-tracker-v4";
 const FILES_TO_CACHE = [
   "./",
   "./index.html",
+  "./simran.html",
+  "./ansh.html",
+  "./ansh.js",
   "./styles.css",
   "./app.js",
   "./manifest.json",
