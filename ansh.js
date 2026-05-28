@@ -1017,71 +1017,86 @@ const TRACK_DEFS = {
   },
 
   spring: {
-    name:'Spring', color:'#6a994e', totalHours:230,
+    name:'Spring', color:'#6a994e', totalHours:150,
     groups:[
-      {id:'sp-1', name:'Block 1 · Core (IoC, DI, Beans, AOP)', hours:35, topics:[
-        {id:'spring-ioc-di',      name:'Spring Core / IoC / DI (foundation)',                             h:12, p:'V.High'},
-        {id:'spring-beans',       name:'Spring Beans (lifecycle, scopes, circular deps)',                  h:9,  p:'V.High'},
-        {id:'spring-annotations', name:'Spring Annotations (Component/Service/Autowired/Configuration)',   h:6,  p:'V.High'},
-        {id:'spring-aop',         name:'Spring AOP (proxies, advice types, pointcuts)',                    h:7,  p:'High'},
-        {id:'spring-events',      name:'Spring Application Events (publisher/listener)',                   h:1,  p:'Medium'},
-      ]},
-      {id:'sp-2', name:'Block 2 · MVC + REST + Validation', hours:30, topics:[
-        {id:'spring-mvc',           name:'Spring MVC (DispatcherServlet, lifecycle, annotations)',         h:12, p:'V.High'},
-        {id:'spring-rest-api',      name:'REST API design (status codes, DTOs, versioning, HATEOAS)',      h:8,  p:'V.High'},
-        {id:'spring-validation',    name:'Validation (@Valid, @Validated, custom validators)',              h:4,  p:'V.High'},
-        {id:'spring-error-handling',name:'@ControllerAdvice + @ExceptionHandler + RFC 7807',               h:4,  p:'V.High'},
-        {id:'spring-file-email',    name:'File Handling (MultipartFile) + JavaMailSender',                 h:2,  p:'Medium'},
-      ]},
-      {id:'sp-3', name:'Block 3 · Boot Fundamentals + Internals', hours:25, topics:[
-        {id:'spring-boot-fundamentals', name:'@SpringBootApplication, auto-config, starters',             h:10, p:'V.High'},
-        {id:'spring-boot-config',       name:'application.properties/yml + Profiles + @ConfigurationProperties', h:4, p:'High'},
-        {id:'spring-actuator',          name:'Actuator + custom health indicators',                       h:4,  p:'High'},
-        {id:'spring-boot-internals',    name:'Auto-config flow + custom starters',                        h:7,  p:'High'},
-      ]},
-      {id:'sp-4', name:'Block 4 · Data / JPA / Transactions', hours:30, topics:[
-        {id:'spring-data-jpa',       name:'Spring Data JPA / Hibernate (entities, relationships, fetch types, N+1)', h:18, p:'V.High'},
-        {id:'spring-jdbc-jdbcclient',name:'Spring JDBC + JdbcClient (3.2+)',                              h:3,  p:'Medium'},
-        {id:'spring-transactional',  name:'@Transactional (propagation, isolation, rollback)',             h:5,  p:'V.High'},
-        {id:'spring-locking',        name:'Optimistic vs Pessimistic locking, @Version, @Lock',           h:2,  p:'High'},
-        {id:'spring-connection-pool',name:'HikariCP tuning, multi-datasource, read replicas',             h:2,  p:'High'},
-      ]},
-      {id:'sp-5', name:'Block 5 · Security', hours:20, topics:[
-        {id:'spring-security-basics',    name:'Security filter chain, UserDetailsService, BCrypt',         h:5,  p:'V.High'},
-        {id:'spring-security-jwt',       name:'JWT auth filter (OncePerRequestFilter, token extraction)',  h:6,  p:'V.High'},
-        {id:'spring-security-method',    name:'Method-level security (@PreAuthorize, @PostAuthorize)',     h:3,  p:'V.High'},
-        {id:'spring-security-cors-csrf', name:'CORS configuration, CSRF for stateless apps',              h:3,  p:'High'},
-        {id:'spring-security-oauth2',    name:'OAuth2 awareness (authorization server vs resource server)',h:3,  p:'High'},
-      ]},
-      {id:'sp-6', name:'Block 6 · Microservices + Cloud', hours:25, topics:[
-        {id:'spring-cloud-discovery', name:'Microservices intro, service discovery (Eureka concept)',      h:4,  p:'V.High'},
-        {id:'spring-cloud-gateway',   name:'API Gateway (Spring Cloud Gateway, routes, filters)',          h:5,  p:'V.High'},
-        {id:'spring-inter-service',   name:'Inter-service communication (RestTemplate, WebClient, OpenFeign, RestClient)', h:5, p:'V.High'},
-        {id:'spring-resilience4j',    name:'Resilience4j (Circuit Breaker, Retry, Timeout, Bulkhead)',     h:6,  p:'V.High'},
-        {id:'spring-cloud-config',    name:'Spring Cloud Config (config server, refresh scope)',           h:3,  p:'High'},
-        {id:'spring-saga-pattern',    name:'Saga pattern (orchestration vs choreography)',                 h:2,  p:'High'},
-      ]},
-      {id:'sp-7', name:'Block 7 · Messaging + Caching', hours:25, topics:[
-        {id:'spring-kafka',             name:'Kafka (producer/consumer, manual offset, DLQ, retry topics)', h:13, p:'V.High'},
-        {id:'spring-rabbitmq',          name:'RabbitMQ (lite, compare with Kafka)',                         h:3,  p:'Medium'},
-        {id:'spring-cache-abstraction', name:'Spring Cache abstraction (@Cacheable, @CacheEvict)',          h:4,  p:'High'},
-        {id:'spring-redis',             name:'Redis basics (RedisTemplate, data types, TTL, eviction)',     h:5,  p:'High'},
-      ]},
-      {id:'sp-8', name:'Block 8 · Testing + Observability', hours:15, topics:[
-        {id:'spring-testing-slice',  name:'@SpringBootTest, @WebMvcTest, @DataJpaTest, MockMvc',           h:6,  p:'High'},
-        {id:'spring-testcontainers', name:'TestContainers (real DB integration tests)',                    h:3,  p:'High'},
-        {id:'spring-logging-mdc',    name:'Logging deep (SLF4J, Logback, MDC, correlation IDs)',           h:3,  p:'Medium'},
-        {id:'spring-observability',  name:'Micrometer + Prometheus + Grafana + distributed tracing',       h:3,  p:'High'},
-      ]},
-      {id:'sp-9', name:'Block 9 · Modern Spring 2026', hours:25, topics:[
-        {id:'spring-virtual-threads',  name:'Spring Boot 3.2+ Virtual Threads integration',                h:6,  p:'V.High'},
-        {id:'spring-modulith',         name:'Spring Modulith (modular monolith pattern)',                  h:4,  p:'High'},
-        {id:'spring-native-graalvm',   name:'GraalVM Native Image + Spring Native',                       h:3,  p:'Medium'},
-        {id:'spring-crac',             name:'CRaC (Coordinated Restore at Checkpoint) awareness',          h:2,  p:'Medium'},
-        {id:'spring-async-scheduling', name:'Scheduling (@Scheduled) + @Async + TaskExecutor',             h:4,  p:'High'},
-        {id:'spring-webflux-awareness',name:'Spring WebFlux (Mono/Flux, when vs virtual threads)',         h:3,  p:'Medium'},
-        {id:'spring-ai-awareness',     name:'Spring AI awareness (ChatClient, embeddings, RAG basics)',    h:2,  p:'Low'},
-        {id:'spring-websocket',        name:'WebSocket basics + STOMP',                                    h:1,  p:'Low'},
+      {id:'sp-all', name:'Spring Framework Lectures (L1–L200)', hours:150, topics:[
+        {id:'sp-l1-3',     name:'L1-3 · Enterprise Architecture, 1/2/3-Tier',                              h:1, p:'V.High'},
+        {id:'sp-l4-6',     name:'L4-6 · Model 1 vs Model 2, MVC Architecture, Framework comparison',       h:1, p:'V.High'},
+        {id:'sp-l7-9',     name:'L7-9 · Spring history + modules + App Development-1',                     h:1, p:'V.High'},
+        {id:'sp-l10-12',   name:'L10-12 · App Dev-2,3 + BeanFactory Resources',                            h:2, p:'V.High'},
+        {id:'sp-l13-15',   name:'L13-15 · ApplicationContext, BeanFactory vs ApplicationContext',           h:2, p:'V.High'},
+        {id:'sp-l16-18',   name:'L16-18 · Beans + Scopes (singleton/prototype/request/session)',            h:2, p:'V.High'},
+        {id:'sp-l19-21',   name:'L19-21 · Java Configurations + Bean Lifecycle (init, destroy)',            h:2, p:'V.High'},
+        {id:'sp-l22-24',   name:'L22-24 · Bean Lifecycle deep + Inheritance + BeanPostProcessor',           h:2, p:'V.High'},
+        {id:'sp-l25-27',   name:'L25-27 · IoC + Constructor DI + Setter DI + List/Set/Map',                h:2, p:'V.High'},
+        {id:'sp-l28-30',   name:'L28-30 · Circular DI + Constructor vs Setter + Namespaces',               h:2, p:'V.High'},
+        {id:'sp-l31-33',   name:'L31-33 · C-Namespace + Autowiring + Bean Collaboration + XML autowiring', h:2, p:'V.High'},
+        {id:'sp-l34-35',   name:'L34-35 · Annotation-Based Autowiring + Autodiscovery-1 (@Component)',     h:2, p:'V.High'},
+        {id:'sp-l36-37',   name:'L36-37 · Autodiscovery-2,3 (@Service, @Repository, meta-annotations)',    h:2, p:'V.High'},
+        {id:'sp-l38-39',   name:'L38-39 · Autodiscovery-4 + Java-Based Autowiring (@Configuration deep)',  h:2, p:'V.High'},
+        {id:'sp-l40',      name:'L40 · Explicit Wiring vs Autowiring drawbacks',                            h:1, p:'High'},
+        {id:'sp-l41-42',   name:'L41-42 · Method Injection + Method Replacement',                          h:2, p:'High'},
+        {id:'sp-l43-44',   name:'L43-44 · Bean Validations-1,2',                                           h:2, p:'V.High'},
+        {id:'sp-l45-46',   name:'L45-46 · Bean Validations-3 + Event Handling',                            h:2, p:'High'},
+        {id:'sp-l47-48',   name:'L47-48 · Custom Event Handling + Internationalization-1',                  h:2, p:'High'},
+        {id:'sp-l49-50',   name:'L49-50 · Internationalization-2 + Bean Manipulations & Wrappers-1',       h:2, p:'Medium'},
+        {id:'sp-l51-52',   name:'L51-52 · Bean Wrappers-2 + Property Editors',                             h:2, p:'Medium'},
+        {id:'sp-l53-54',   name:'L53-54 · Profiling + SpEL-1',                                             h:2, p:'High'},
+        {id:'sp-l55-56',   name:'L55-56 · SpEL-2,3',                                                       h:2, p:'High'},
+        {id:'sp-l57',      name:'L57 · DAO Introduction',                                                   h:1, p:'V.High'},
+        {id:'sp-l60',      name:'L60 · Spring DAO Exceptions + Spring JDBC Intro',                         h:1, p:'V.High'},
+        {id:'sp-l61-62',   name:'L61-62 · JdbcTemplate-1,2 (basic queries)',                               h:2, p:'V.High'},
+        {id:'sp-l63-64',   name:'L63-64 · JdbcTemplate-3,4 (RowMapper, BeanPropertyRowMapper)',            h:2, p:'V.High'},
+        {id:'sp-l65',      name:'L65 · Positional + Named Parameters',                                      h:1, p:'V.High'},
+        {id:'sp-l66-67',   name:'L66-67 · NamedParameterJdbcTemplate-1,2',                                 h:2, p:'V.High'},
+        {id:'sp-l73-74',   name:'L73-74 · Batch Updates-1,2',                                              h:2, p:'High'},
+        {id:'sp-l75-76',   name:'L75-76 · Stored Procedures and Functions-1,2',                            h:2, p:'High'},
+        {id:'sp-l77-78',   name:'L77-78 · Stored Procedures and Functions-3,4',                            h:2, p:'High'},
+        {id:'sp-l79',      name:'L79 · BLOB and CLOB-1',                                                   h:1, p:'Medium'},
+        {id:'sp-l80-81',   name:'L80-81 · BLOB and CLOB-2,3',                                              h:2, p:'Medium'},
+        {id:'sp-l82-83',   name:'L82-83 · Connection Pooling-1,2 + HikariCP modern config',                h:2, p:'V.High'},
+        {id:'sp-l84-85',   name:'L84-85 · Connection Pooling-3,4',                                         h:2, p:'High'},
+        {id:'sp-l91-92',   name:'L91-92 · AOP Introduction + Terminology',                                 h:2, p:'V.High'},
+        {id:'sp-l93',      name:'L93 · Advices',                                                           h:1, p:'V.High'},
+        {id:'sp-l94-95',   name:'L94-95 · Pointcuts + MethodBeforeAdvice-1',                               h:2, p:'V.High'},
+        {id:'sp-l96-97',   name:'L96-97 · MethodBeforeAdvice-2 + AfterAdvice',                             h:2, p:'V.High'},
+        {id:'sp-l98-99',   name:'L98-99 · ThrowsAdvice + AroundAdvice',                                    h:2, p:'V.High'},
+        {id:'sp-l100-101', name:'L100-101 · AspectJ Style AOP + Declarative-1',                            h:2, p:'High'},
+        {id:'sp-l102-103', name:'L102-103 · Declarative-2 + AspectJ Annotation Style-1',                   h:2, p:'High'},
+        {id:'sp-l104-105', name:'L104-105 · AspectJ Annotation-2 + Transactions Intro',                    h:2, p:'V.High'},
+        {id:'sp-l106-107', name:'L106-107 · ACID + Isolation + Transaction Support in Spring',             h:2, p:'V.High'},
+        {id:'sp-l108-109', name:'L108-109 · Programmatic Transaction Management-1,2',                      h:2, p:'V.High'},
+        {id:'sp-l110-111', name:'L110-111 · Declarative Tx with XML + Annotations',                        h:2, p:'V.High'},
+        {id:'sp-l112-113', name:'L112-113 · Hibernate Intro + Application',                                h:2, p:'V.High'},
+        {id:'sp-l114-115', name:'L114-115 · Spring-Hibernate Integration-1,2',                             h:2, p:'V.High'},
+        {id:'sp-l116-117', name:'L116-117 · Spring-Hibernate Integration-3 + JPA Intro',                   h:2, p:'V.High'},
+        {id:'sp-l118-119', name:'L118-119 · JPA Application + Spring-JPA Integration',                     h:2, p:'V.High'},
+        {id:'sp-l120-121', name:'L120-121 · Spring Web MVC Introduction-1,2',                              h:2, p:'V.High'},
+        {id:'sp-l122-123', name:'L122-123 · MVC Elements + Flow + DispatcherServlet',                      h:2, p:'V.High'},
+        {id:'sp-l124-125', name:'L124-125 · HandlerMapping + Controller + ViewResolver basics',             h:2, p:'V.High'},
+        {id:'sp-l126-127', name:'L126-127 · Spring MVC Application + Internal Flow-1',                     h:2, p:'V.High'},
+        {id:'sp-l128-129', name:'L128-129 · MVC Application-2,3 + Login Application',                     h:2, p:'High'},
+        {id:'sp-l130',     name:'L130 · @SessionAttribute + @RequestParam + REST intro',                   h:1, p:'High'},
+        {id:'sp-l147-148', name:'L147-148 · BeanNameUrlHandlerMapping + SimpleUrlHandlerMapping',          h:2, p:'High'},
+        {id:'sp-l149-150', name:'L149-150 · DefaultAnnotationHandlerMapping + HandlerInterceptor-1',       h:2, p:'High'},
+        {id:'sp-l151-152', name:'L151-152 · HandlerInterceptor-2 + View Resolvers (URLBased, InternalResource)', h:2, p:'High'},
+        {id:'sp-l153-154', name:'L153-154 · XMLViewResolver + Exception Handling (@ControllerAdvice)',     h:2, p:'V.High'},
+        {id:'sp-l155',     name:'L155 · RFC 7807 + Global error handling supplement',                      h:1, p:'V.High'},
+        {id:'sp-l156-157', name:'L156-157 · File Uploading + File Downloading',                            h:2, p:'High'},
+        {id:'sp-l158',     name:'L158 · Internationalization-1 + CORS configuration',                      h:2, p:'High'},
+        {id:'sp-l171-172', name:'L171-172 · Web Security Introduction + Authentication Mechanisms-1',      h:2, p:'V.High'},
+        {id:'sp-l173-174', name:'L173-174 · Authentication Mechanisms-2,3',                                h:2, p:'V.High'},
+        {id:'sp-l175',     name:'L175 · Spring Security Models + Spring Security 6 architecture',          h:1, p:'V.High'},
+        {id:'sp-l176-177', name:'L176-177 · Maven Introduction + POM-1',                                   h:2, p:'High'},
+        {id:'sp-l178-179', name:'L178-179 · POM-2 + POM-3 (Dependency mgmt + scope + inheritance)',        h:2, p:'High'},
+        {id:'sp-l180',     name:'L180 · POM-4 (Build Configurations + Profiles)',                          h:1, p:'High'},
+        {id:'sp-l187-188', name:'L187-188 · Spring Boot Introduction + Features',                          h:2, p:'V.High'},
+        {id:'sp-l189-191', name:'L189+L191 · Boot with Eclipse + Initializr',                              h:2, p:'High'},
+        {id:'sp-l192-193', name:'L192-193 · Postman + User Forms Application',                             h:2, p:'High'},
+        {id:'sp-l194-195', name:'L194-195 · Spring Boot with Spring JDBC-1,2',                             h:2, p:'V.High'},
+        {id:'sp-l196-197', name:'L196-197 · Spring Boot with Spring JDBC-3,4',                             h:2, p:'V.High'},
+        {id:'sp-l198-199', name:'L198-199 · Spring Data JDBC-1,2',                                         h:2, p:'V.High'},
+        {id:'sp-l200',     name:'L200 · Spring Boot Actuator deep',                                         h:2, p:'High'},
       ]},
     ]
   },
@@ -1232,9 +1247,9 @@ function renderTrackTab(trackId) {
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
       <div>
         <div class="lbl" style="margin:0;color:${def.color}">${def.name}</div>
-        <div style="font-size:12px;color:var(--dim);font-family:'JetBrains Mono',monospace;margin-top:2px">${def.totalHours}h total · ${totalDone}/${totalTopics} topics done</div>
+        <div id="overall-stats-${trackId}" style="font-size:12px;color:var(--dim);font-family:'JetBrains Mono',monospace;margin-top:2px">${def.totalHours}h total · ${totalDone}/${totalTopics} topics done</div>
       </div>
-      <div style="font-size:24px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${def.color}">${overallPct}%</div>
+      <div id="overall-pct-${trackId}" style="font-size:24px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${def.color}">${overallPct}%</div>
     </div>
     <div class="prog-bg" style="height:8px"><div class="prog-fill" id="overall-bar-${trackId}" style="width:${overallPct}%;background:${def.color};height:8px"></div></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px;margin-top:12px">
@@ -1242,8 +1257,8 @@ function renderTrackTab(trackId) {
         const s = calcGroupStats(trackId, g);
         const p = s.total ? Math.round(s.done/s.total*100) : 0;
         return `<div class="track-overview" style="padding:8px 10px">
-          <div class="to-bar" style="flex:1"><div class="to-bar-fill" style="width:${p}%;background:${def.color}"></div></div>
-          <div style="font-size:10px;color:var(--dim);font-family:'JetBrains Mono',monospace;min-width:32px;text-align:right">${p}%</div>
+          <div class="to-bar" style="flex:1"><div class="to-bar-fill" id="mini-bar-${trackId}-${g.id}" style="width:${p}%;background:${def.color}"></div></div>
+          <div id="mini-pct-${trackId}-${g.id}" style="font-size:10px;color:var(--dim);font-family:'JetBrains Mono',monospace;min-width:32px;text-align:right">${p}%</div>
         </div>`;
       }).join('')}
     </div>
@@ -1256,9 +1271,9 @@ function renderTrackTab(trackId) {
       <div class="track-section-hdr">
         <div>
           <div class="track-section-title">${g.name}</div>
-          <div style="font-size:10px;color:var(--dim);font-family:'JetBrains Mono',monospace;margin-top:1px">${g.hours}h · ${s.done}/${s.total} done${s.prog?' · '+s.prog+' in progress':''}</div>
+          <div id="gsub-${trackId}-${g.id}" style="font-size:10px;color:var(--dim);font-family:'JetBrains Mono',monospace;margin-top:1px">${g.hours}h · ${s.done}/${s.total} done${s.prog?' · '+s.prog+' in progress':''}</div>
         </div>
-        <div class="track-pct-lbl" style="color:${def.color}">${pct}%</div>
+        <div id="gpct-${trackId}-${g.id}" class="track-pct-lbl" style="color:${def.color}">${pct}%</div>
       </div>
       <div class="track-section-prog" style="background:var(--surface2)"><div class="fill" id="gbar-${trackId}-${g.id}" style="width:${pct}%;background:${def.color}"></div></div>
       ${g.topics.map((tp, i) => {
@@ -1297,18 +1312,31 @@ function setTrackTopic(trackId, topicId, newState, groupId) {
   if (row) {
     row.className = 'tr-row' + (st==='done'?' s-done':st==='in-progress'?' s-prog':'');
   }
-  // update group bar + overall bar
+  // update group bars + labels
   const def = TRACK_DEFS[trackId];
   if (!def) return;
+  let totalDone = 0, totalTopics = 0;
   def.groups.forEach(g => {
     const s = calcGroupStats(trackId, g);
     const p = s.total ? Math.round(s.done/s.total*100) : 0;
+    totalDone += s.done; totalTopics += g.topics.length;
     const gb = document.getElementById('gbar-'+trackId+'-'+g.id);
     if (gb) gb.style.width = p+'%';
+    const gpct = document.getElementById('gpct-'+trackId+'-'+g.id);
+    if (gpct) gpct.textContent = p+'%';
+    const gsub = document.getElementById('gsub-'+trackId+'-'+g.id);
+    if (gsub) gsub.textContent = g.hours+'h · '+s.done+'/'+s.total+' done'+(s.prog?' · '+s.prog+' in progress':'');
+    const mb = document.getElementById('mini-bar-'+trackId+'-'+g.id);
+    if (mb) mb.style.width = p+'%';
+    const mp = document.getElementById('mini-pct-'+trackId+'-'+g.id);
+    if (mp) mp.textContent = p+'%';
   });
-  let totalDone = 0, totalTopics = 0;
-  def.groups.forEach(g => { const s = calcGroupStats(trackId, g); totalDone+=s.done; totalTopics+=g.topics.length; });
+  // update overall header
   const op = totalTopics ? Math.round(totalDone/totalTopics*100) : 0;
   const ob = document.getElementById('overall-bar-'+trackId);
   if (ob) ob.style.width = op+'%';
+  const opct = document.getElementById('overall-pct-'+trackId);
+  if (opct) opct.textContent = op+'%';
+  const ostats = document.getElementById('overall-stats-'+trackId);
+  if (ostats) ostats.textContent = def.totalHours+'h total · '+totalDone+'/'+totalTopics+' topics done';
 }
