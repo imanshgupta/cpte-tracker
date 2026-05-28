@@ -510,6 +510,28 @@ function toggleSlot(date, slot, el) {
     const found = findDay(today);
     if (found) stripEl.innerHTML = renderWeekStrip(found.week, today);
   }
+  // sync to individual track tabs
+  syncSlotToTrack(date, slot, done);
+}
+
+function springRefFromText(text) {
+  const all = [...text.matchAll(/L(\d+)(?:-(\d+))?/g)];
+  if (!all.length) return null;
+  const first = all[0][1];
+  const last = all[all.length - 1][2] || all[all.length - 1][1];
+  const id = (first === last) ? 'sp-l' + first : 'sp-l' + first + '-' + last;
+  return TRACK_DEFS.spring.groups[0].topics.some(t => t.id === id) ? id : null;
+}
+
+function syncSlotToTrack(date, slot, done) {
+  const found = findDay(date);
+  if (!found) return;
+  const day = found.day;
+  const target = done ? 'done' : 'not-started';
+  if (slot === 'b' && day.mt === 'spring') {
+    const ref = springRefFromText(day.main);
+    if (ref) setTrackTopic('spring', ref, target, 'sp-all', true);
+  }
 }
 
 function renderWeekStrip(week, today) {
@@ -1300,11 +1322,11 @@ function renderTrackTab(trackId) {
   el.innerHTML = html;
 }
 
-function setTrackTopic(trackId, topicId, newState, groupId) {
+function setTrackTopic(trackId, topicId, newState, groupId, force) {
   if (!STATE.tracks[trackId]) STATE.tracks[trackId] = {};
   const cur = STATE.tracks[trackId][topicId] || 'not-started';
-  // toggle: clicking same state = back to not-started
-  STATE.tracks[trackId][topicId] = (cur === newState) ? 'not-started' : newState;
+  // force=true skips toggle (used by daily-check sync); otherwise toggle: same state → not-started
+  STATE.tracks[trackId][topicId] = (!force && cur === newState) ? 'not-started' : newState;
   saveState(STATE);
 
   const st = STATE.tracks[trackId][topicId];
