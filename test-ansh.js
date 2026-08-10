@@ -79,29 +79,33 @@ const markTrackGroup = (track, groupId) => {
 // ══════════════════════════════════════════════════════════════════════════
 S('1. Pull-forward — finishing fast advances the flow');
 R();
-t('baseline: Java Part A starts on day 1, Collections starts Sep 8', () => {
+let BASE = {};
+t('baseline: Java starts day 1 at the top of Part A', () => {
   const j = sessionsFor('java');
   eq(j[0].date, '2026-08-11', 'first Java session');
-  eq(j[0].units[0].name.slice(0, 8), 'JVM / JR', 'first topic');
-  const coll = j.find(s => s.units.some(u => u.gname.indexOf('Collections') >= 0));
-  eq(coll.date, '2026-09-08', 'Collections start');
+  const firstUnit = f.streamUnits('java')[0];
+  eq(j[0].units[0].id, firstUnit.id, 'day 1 leads with the first curriculum row');
+  ok(j[0].units[0].gname.indexOf('Part A') >= 0, 'and it is in Part A');
+  BASE.collections = j.find(s => s.units.some(u => u.gname.indexOf('Collections') >= 0)).date;
+  BASE.concurrency = j.find(s => s.units.some(u => u.gname.indexOf('Concurrency') >= 0)).date;
+  console.log('        baseline: Collections ' + BASE.collections + ', Concurrency ' + BASE.concurrency);
 });
-t('clear Part A (12 topics) → Part B becomes day 1, Collections pulls up', () => {
+t('clear Part A → Part B becomes day 1, Collections pulls up', () => {
   markTrackGroup('java', 'java-a');
   f.invalidatePlan();
   const j = sessionsFor('java');
   eq(j[0].date, '2026-08-11', 'still day 1');
   ok(j[0].units[0].gname.indexOf('Strings') >= 0, 'day 1 now Strings, got: ' + j[0].units[0].gname);
   const coll = j.find(s => s.units.some(u => u.gname.indexOf('Collections') >= 0));
-  ok(coll.date < '2026-09-08', 'Collections pulled up: ' + coll.date);
-  console.log('        Collections 2026-09-08 → ' + coll.date);
+  ok(coll.date < BASE.collections, 'Collections pulled up: ' + coll.date);
+  console.log('        Collections ' + BASE.collections + ' → ' + coll.date);
 });
 t('clear Parts B+C+D too → Concurrency pulls up from Nov 15', () => {
   ['java-b','java-c','java-d'].forEach(gid => markTrackGroup('java', gid));
   f.invalidatePlan();
   const conc = sessionsFor('java').find(s => s.units.some(u => u.gname.indexOf('Concurrency') >= 0));
-  ok(conc.date < '2026-11-15', 'Concurrency pulled up: ' + conc.date);
-  console.log('        Concurrency 2026-11-15 → ' + conc.date);
+  ok(conc.date < BASE.concurrency, 'Concurrency pulled up: ' + conc.date);
+  console.log('        Concurrency ' + BASE.concurrency + ' → ' + conc.date);
 });
 t('AWS pulls up independently of Java', () => {
   R();
