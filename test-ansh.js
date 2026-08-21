@@ -22,7 +22,7 @@ global.document = { getElementById: getEl, querySelectorAll: () => [], querySele
 global.window = { addEventListener() {} };
 global.confirm = () => true;
 
-global.__TODAY = [2026, 7, 17];              // Aug 17 2026 = plan day 1
+global.__TODAY = [2026, 7, 24];              // Aug 24 2026 = plan day 1
 const RD = Date;
 global.Date = class extends RD {
   constructor(...a) { if (!a.length) super(...global.__TODAY); else super(...a); }
@@ -82,7 +82,7 @@ R();
 let BASE = {};
 t('baseline: Java starts day 1 at the top of Part A', () => {
   const j = sessionsFor('java');
-  eq(j[0].date, '2026-08-17', 'first Java session');
+  eq(j[0].date, '2026-08-24', 'first Java session');
   const firstUnit = f.streamUnits('java')[0];
   eq(j[0].units[0].id, firstUnit.id, 'day 1 leads with the first curriculum row');
   ok(j[0].units[0].gname.indexOf('Part A') >= 0, 'and it is in Part A');
@@ -94,7 +94,7 @@ t('clear Part A → Part B becomes day 1, Collections pulls up', () => {
   markTrackGroup('java', 'java-a');
   f.invalidatePlan();
   const j = sessionsFor('java');
-  eq(j[0].date, '2026-08-17', 'still day 1');
+  eq(j[0].date, '2026-08-24', 'still day 1');
   ok(j[0].units[0].gname.indexOf('Strings') >= 0, 'day 1 now Strings, got: ' + j[0].units[0].gname);
   const coll = j.find(s => s.units.some(u => u.gname.indexOf('Collections') >= 0));
   ok(coll.date < BASE.collections, 'Collections pulled up: ' + coll.date);
@@ -149,7 +149,7 @@ S('2. Roll-forward — skipped days are not lost');
 t('skipping 30 days keeps the backlog and raises density', () => {
   R();
   const p1 = f.getPlan().pace.aws;
-  global.__api.setToday(2026, 9, 16);
+  global.__api.setToday(2026, 9, 23);
   const p2 = f.getPlan().pace.aws;
   eq(p2.left, p1.left, 'nothing completed, so nothing lost');
   ok(p2.sessions < p1.sessions, 'fewer sessions remain');
@@ -158,12 +158,12 @@ t('skipping 30 days keeps the backlog and raises density', () => {
   console.log('        ' + p1.sessions + ' sessions @' + f.fmtH(p1.load) + ' → ' + p2.sessions + ' @' + f.fmtH(p2.load) + '  (' + p2.ratio.toFixed(1) + '×)');
 });
 t('a stream with no sessions left is flagged stranded, not silently dropped', () => {
-  global.__api.setToday(2026, 12, 16);
+  global.__api.setToday(2026, 12, 23);
   const p = f.getPlan().pace.sql;
   eq(p.sessions, 0, 'SQL sessions all in the past');
   ok(p.left > 0 && p.stuck === true, 'should be stuck');
   console.log('        SQL: ' + p.left + ' stranded, 0 sessions remain');
-  global.__api.setToday(2026, 8, 17);
+  global.__api.setToday(2026, 8, 24);
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -175,7 +175,7 @@ t('Java empty → Spring takes all 188 Slot B sessions', () => {
   f.invalidatePlan();
   eq(f.getPlan().pace.java.sessions, 0, 'Java keeps none');
   eq(f.getPlan().pace.spring.sessions, 188, 'Spring takes both day types');
-  const m = f.slotMeta(f.findDay('2026-08-17').day, 'b');
+  const m = f.slotMeta(f.findDay('2026-08-24').day, 'b');
   ok(m.label.indexOf('Spring') === 0 && m.label.indexOf('↺ from Java') > 0, 'label marks handover: ' + m.label);
 });
 t('AWS empty → System Design takes Slot D too', () => {
@@ -183,15 +183,15 @@ t('AWS empty → System Design takes Slot D too', () => {
   g.TRACK_DEFS.cloud.groups.forEach(grp => { if (grp.id.indexOf('cl-saa-') === 0) markTrackGroup('cloud', grp.id); });
   f.invalidatePlan();
   eq(f.getPlan().pace.sd.sessions, 220, 'SD gets its 126 plus 94 AWS');
-  const m = f.slotMeta(f.findDay('2026-08-17').day, 'd');
+  const m = f.slotMeta(f.findDay('2026-08-24').day, 'd');
   ok(m.label.indexOf('System Design') === 0 && m.label.indexOf('↺') > 0, 'label: ' + m.label);
 });
 t('both pipes dry → falls through the chain, no idle session', () => {
   ['java','spring','sd'].forEach(tr => g.TRACK_DEFS[tr].groups.forEach(grp => markTrackGroup(tr, grp.id)));
   g.TRACK_DEFS.cloud.groups.forEach(grp => markTrackGroup('cloud', grp.id));
   f.invalidatePlan();
-  const mb = f.slotMeta(f.findDay('2026-08-17').day, 'b');
-  const md = f.slotMeta(f.findDay('2026-08-17').day, 'd');
+  const mb = f.slotMeta(f.findDay('2026-08-24').day, 'b');
+  const md = f.slotMeta(f.findDay('2026-08-24').day, 'd');
   ok(mb.stream === 'dsa', 'Slot B falls to DSA, got ' + mb.stream);
   ok(md.stream === 'dsa' || md.stream === 'clocal', 'Slot D falls through, got ' + md.stream);
   ok(f.getPlan().pace.dsa.sessions > 188, 'DSA gained sessions: ' + f.getPlan().pace.dsa.sessions);
@@ -201,7 +201,7 @@ t('everything done → slot reports a free session rather than erroring', () => 
   g.TRACK_DEFS.cloud.groups.forEach(grp => markTrackGroup('cloud', grp.id));
   g.GFG_MODULES.forEach(m => m.topics.forEach(tp => f.updateTopic(tp.id, 'vc', tp.vt, tp.vt, tp.pt) || f.updateTopic(tp.id, 'pc', tp.pt, tp.vt, tp.pt)));
   f.invalidatePlan();
-  const m = f.slotMeta(f.findDay('2026-08-17').day, 'a');
+  const m = f.slotMeta(f.findDay('2026-08-24').day, 'a');
   ok(m.content.indexOf('Backlog clear') >= 0, 'expected free-session text, got: ' + m.content.slice(0, 60));
 });
 
@@ -209,43 +209,43 @@ t('everything done → slot reports a free session rather than erroring', () => 
 S('4. Completion paths — Today tick vs track page');
 t('ticking Slot D completes exactly the lessons it displayed', () => {
   R();
-  const before = f.assignmentFor('2026-08-17', 'd').units.map(u => u.id);
-  f.toggleSlot('2026-08-17', 'd');
+  const before = f.assignmentFor('2026-08-24', 'd').units.map(u => u.id);
+  f.toggleSlot('2026-08-24', 'd');
   before.forEach(id => eq(global.__api.state.tracks.cloud[id], 'done', id + ' should be done'));
-  eq(global.__api.state.dailyChecks['2026-08-17'].d, true, 'slot checked');
-  eq(global.__api.state.dailyLog['2026-08-17'].d.units.length, before.length, 'logged');
+  eq(global.__api.state.dailyChecks['2026-08-24'].d, true, 'slot checked');
+  eq(global.__api.state.dailyLog['2026-08-24'].d.units.length, before.length, 'logged');
 });
 t('a ticked day keeps showing what was done (does not re-fill)', () => {
-  const after = f.assignmentFor('2026-08-17', 'd').units.map(u => u.id);
-  eq(after.join(','), global.__api.state.dailyLog['2026-08-17'].d.units.map(u => u.id).join(','), 'shows the log');
+  const after = f.assignmentFor('2026-08-24', 'd').units.map(u => u.id);
+  eq(after.join(','), global.__api.state.dailyLog['2026-08-24'].d.units.map(u => u.id).join(','), 'shows the log');
 });
 t('unticking restores the lessons to the queue', () => {
   const n = f.getPlan().pace.aws.left;
-  f.toggleSlot('2026-08-17', 'd');
+  f.toggleSlot('2026-08-24', 'd');
   f.invalidatePlan();
   eq(f.getPlan().pace.aws.left, n + 4, 'four lessons returned');
-  ok(!global.__api.state.dailyChecks['2026-08-17'].d, 'unchecked');
-  ok(!global.__api.state.dailyLog['2026-08-17'].d, 'log cleared');
+  ok(!global.__api.state.dailyChecks['2026-08-24'].d, 'unchecked');
+  ok(!global.__api.state.dailyLog['2026-08-24'].d, 'log cleared');
 });
 t('ticking Slot A moves GFG counters', () => {
   R();
-  const units = f.assignmentFor('2026-08-17', 'a').units;
-  f.toggleSlot('2026-08-17', 'a');
+  const units = f.assignmentFor('2026-08-24', 'a').units;
+  f.toggleSlot('2026-08-24', 'a');
   const topics = [...new Set(units.map(u => u.topic))];
   topics.forEach(tp => { const s = global.__api.state.gfg.topics[tp];
     ok((s.vc || 0) + (s.pc || 0) > 0, tp + ' counters should have moved'); });
 });
 t('unticking Slot A rolls GFG counters back', () => {
-  f.toggleSlot('2026-08-17', 'a');
+  f.toggleSlot('2026-08-24', 'a');
   const tot = Object.values(global.__api.state.gfg.topics).reduce((a, s) => a + (s.vc||0) + (s.pc||0), 0);
   eq(tot, 0, 'all counters back to zero');
 });
 t('marking on the track page shifts the next session (the "I already know this" path)', () => {
   R();
-  const d3 = f.assignmentFor('2026-08-19', 'b').units.map(u => u.id).join(',');
-  f.assignmentFor('2026-08-17', 'b').units.forEach(u => f.setTrackTopic('java', u.id, 'done', u.group, true));
+  const d3 = f.assignmentFor('2026-08-26', 'b').units.map(u => u.id).join(',');
+  f.assignmentFor('2026-08-24', 'b').units.forEach(u => f.setTrackTopic('java', u.id, 'done', u.group, true));
   f.invalidatePlan();
-  const now = f.assignmentFor('2026-08-17', 'b').units;
+  const now = f.assignmentFor('2026-08-24', 'b').units;
   const day1WasDone = global.__api.state.tracks.java;
   ok(!now.some(u => day1WasDone[u.id] === 'done'), 'day 1 must not re-show completed topics');
   ok(now.length > 0, 'day 1 still has work');
@@ -255,13 +255,13 @@ t('marking on the track page shifts the next session (the "I already know this" 
 });
 t('ticking a prose slot (mock/hands-on) works and touches no queue', () => {
   R();
-  const day = f.findDay('2026-08-17').day;
+  const day = f.findDay('2026-08-24').day;
   eq(f.streamForSlot(day, 'c'), null, 'day 1 Slot C is prose');
-  f.toggleSlot('2026-08-17', 'c');
-  eq(global.__api.state.dailyChecks['2026-08-17'].c, true, 'checked');
-  ok(!global.__api.state.dailyLog['2026-08-17'] || !global.__api.state.dailyLog['2026-08-17'].c, 'nothing logged');
-  f.toggleSlot('2026-08-17', 'c');
-  ok(!global.__api.state.dailyChecks['2026-08-17'].c, 'unchecked cleanly');
+  f.toggleSlot('2026-08-24', 'c');
+  eq(global.__api.state.dailyChecks['2026-08-24'].c, true, 'checked');
+  ok(!global.__api.state.dailyLog['2026-08-24'] || !global.__api.state.dailyLog['2026-08-24'].c, 'nothing logged');
+  f.toggleSlot('2026-08-24', 'c');
+  ok(!global.__api.state.dailyChecks['2026-08-24'].c, 'unchecked cleanly');
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -269,7 +269,7 @@ S('5. Rotation & slot structure');
 t('slots alternate strictly from day 1', () => {
   R();
   const exp = [['java','aws'],['spring','sd'],['java','aws'],['spring','sd']];
-  ['2026-08-17','2026-08-18','2026-08-19','2026-08-20'].forEach((d, i) => {
+  ['2026-08-24','2026-08-25','2026-08-26','2026-08-27'].forEach((d, i) => {
     const day = f.findDay(d).day;
     eq(f.streamForSlot(day, 'b'), exp[i][0], d + ' slot B');
     eq(f.streamForSlot(day, 'd'), exp[i][1], d + ' slot D');
@@ -321,7 +321,7 @@ R();
 
 S('7. UI — Today tab states');
 t('pre-plan preview shows a countdown and no tick boxes', () => {
-  R(); global.__api.setToday(2026, 8, 15);
+  R(); global.__api.setToday(2026, 8, 22);
   f.renderToday();
   const h = getEl('panel-today').innerHTML;
   ok(h.indexOf('days until the plan begins') > 0, 'countdown shown');
@@ -329,7 +329,7 @@ t('pre-plan preview shows a countdown and no tick boxes', () => {
   ok(h.indexOf('Topics to be added') < 0, 'no leftover placeholder');
 });
 t('active day shows four slots, pace card and week strip', () => {
-  global.__api.setToday(2026, 8, 17); f.renderToday();
+  global.__api.setToday(2026, 8, 24); f.renderToday();
   const h = getEl('panel-today').innerHTML;
   eq((h.match(/slot-block/g) || []).length, 4, 'four slot blocks');
   eq((h.match(/Mark as done/g) || []).length, 4, 'four tick rows');
@@ -338,21 +338,21 @@ t('active day shows four slots, pace card and week strip', () => {
   ok(h.indexOf('Day 1 of') > 0 || getEl('day-pill').textContent.indexOf('Day 1') === 0, 'day pill set');
 });
 t('post-plan shows the completion state', () => {
-  global.__api.setToday(2027, 3, 10); f.renderToday();
+  global.__api.setToday(2027, 3, 17); f.renderToday();
   ok(getEl('panel-today').innerHTML.indexOf('Plan complete') > 0, 'completion message');
 });
 t('the un-scheduled gap day renders as an explicit rest day', () => {
-  global.__api.setToday(2026, 11, 27); f.renderToday();
+  global.__api.setToday(2026, 12, 4); f.renderToday();
   const h = getEl('panel-today').innerHTML;
   ok(h.indexOf('Rest day · no session scheduled') > 0, 'handled: ' + h.slice(0, 90));
   ok(h.indexOf('slot-block') < 0, 'no slots offered');
   eq(getEl('day-pill').textContent, 'Rest day', 'pill set');
 });
 t('a buffer day renders its activity only', () => {
-  global.__api.setToday(2027, 2, 24); f.renderToday();
+  global.__api.setToday(2027, 3, 3); f.renderToday();
   const h = getEl('panel-today').innerHTML;
   ok(h.indexOf('slot-block') < 0, 'no slots on buffer days');
-  global.__api.setToday(2026, 8, 17);
+  global.__api.setToday(2026, 8, 24);
 });
 
 S('8. UI — Weeks tab');
@@ -376,7 +376,7 @@ t('the buffer week renders activities, not slots', () => {
   ok(h.indexOf('FINAL DAY OF PLAN') > 0, 'buffer content present');
 });
 t('ticked slots show a check in the week view', () => {
-  R(); f.toggleSlot('2026-08-17', 'a'); f.showWeek(0);
+  R(); f.toggleSlot('2026-08-24', 'a'); f.showWeek(0);
   ok(getEl('week-detail').innerHTML.indexOf('wdr-tick') > 0, 'tick rendered');
 });
 
@@ -399,9 +399,9 @@ t('clampInput mutates the element value', () => {
 });
 t('editing a counter reshuffles the plan immediately', () => {
   R();
-  const before = f.assignmentFor('2026-08-17', 'a').units.length;
+  const before = f.assignmentFor('2026-08-24', 'a').units.length;
   f.updateTopic('basics-dsa-intro', 'vc', 2, 2, 0);
-  const after = f.assignmentFor('2026-08-17', 'a').units;
+  const after = f.assignmentFor('2026-08-24', 'a').units;
   ok(!after.some(u => u.topic === 'basics-dsa-intro'), 'completed topic no longer scheduled');
   ok(before > 0 && after.length > 0, 'still scheduled');
 });
@@ -429,7 +429,7 @@ t('in-progress is a distinct state and does not complete the item', () => {
   const id = g.TRACK_DEFS.java.groups[0].topics[0].id;
   f.setTrackTopic('java', id, 'in-progress', 'java-a');
   eq(global.__api.state.tracks.java[id], 'in-progress');
-  ok(f.assignmentFor('2026-08-17', 'b').units.some(u => u.id === id), 'still scheduled');
+  ok(f.assignmentFor('2026-08-24', 'b').units.some(u => u.id === id), 'still scheduled');
 });
 t('force=true (sync path) does not toggle off', () => {
   R();
@@ -469,19 +469,19 @@ t('rules documents 4 slots, handover and no stale weekday rotation', () => {
 
 S('12. Pace card');
 t('reads "on plan" at the start, per stream', () => {
-  R(); global.__api.setToday(2026, 8, 17);
+  R(); global.__api.setToday(2026, 8, 24);
   const h = f.renderPace();
   ok((h.match(/on plan/g) || []).length >= 5, 'most streams on plan');
   ok(h.indexOf('pace-flag behind') < 0, 'nothing behind on day 1');
 });
 t('turns red when behind', () => {
-  global.__api.setToday(2026, 11, 16);
+  global.__api.setToday(2026, 11, 23);
   const h = f.renderPace();
   ok(h.indexOf('pace-flag behind') > 0, 'behind flag present');
   ok(/\d\.\d× pace/.test(h), 'ratio shown');
 });
 t('turns green when the backlog is cleared', () => {
-  R(); global.__api.setToday(2026, 8, 17);
+  R(); global.__api.setToday(2026, 8, 24);
   g.TRACK_DEFS.sql.groups.forEach(grp => markTrackGroup('sql', grp.id));
   f.invalidatePlan();
   ok(f.renderPace().indexOf('✓ clear') > 0, 'clear flag present');
@@ -490,20 +490,20 @@ t('turns green when the backlog is cleared', () => {
 S('13. Persistence');
 t('state survives a save/load round trip', () => {
   R();
-  f.toggleSlot('2026-08-17', 'd');
+  f.toggleSlot('2026-08-24', 'd');
   const raw = localStorage.getItem('java-prep-tracker-v2');
   const parsed = JSON.parse(raw);
   eq(parsed.version, '3.0', 'version bumped');
-  ok(parsed.dailyLog['2026-08-17'].d.units.length === 4, 'log persisted');
+  ok(parsed.dailyLog['2026-08-24'].d.units.length === 4, 'log persisted');
   ok(Object.keys(parsed.tracks.cloud).length === 4, 'track state persisted');
 });
 t('a legacy v2 state without dailyLog is migrated by loadState', () => {
   localStorage.setItem('java-prep-tracker-v2', JSON.stringify(
-    {version:'2.0', gfg:{topics:{}}, dailyChecks:{'2026-08-17':{a:true}}, tracks:{}}));
+    {version:'2.0', gfg:{topics:{}}, dailyChecks:{'2026-08-24':{a:true}}, tracks:{}}));
   const loaded = f.loadState();
   ok(loaded.dailyLog && typeof loaded.dailyLog === 'object', 'dailyLog backfilled');
   ok(loaded.gfg && loaded.gfg.topics, 'gfg preserved');
-  eq(loaded.dailyChecks['2026-08-17'].a, true, 'existing checks preserved');
+  eq(loaded.dailyChecks['2026-08-24'].a, true, 'existing checks preserved');
   ok(loaded.tracks && loaded.tracks.java, 'tracks backfilled');
 });
 t('a corrupt state falls back to defaults instead of throwing', () => {
@@ -515,8 +515,8 @@ t('a corrupt state falls back to defaults instead of throwing', () => {
 
 t('resetAll clears every part of the state, not just GFG', () => {
   R();
-  f.toggleSlot('2026-08-17', 'a');
-  f.toggleSlot('2026-08-17', 'd');
+  f.toggleSlot('2026-08-24', 'a');
+  f.toggleSlot('2026-08-24', 'd');
   f.setTrackTopic('java', g.TRACK_DEFS.java.groups[0].topics[0].id, 'done', 'java-a', true);
   ok(Object.keys(global.__api.state.dailyChecks).length > 0, 'state is dirty');
   f.resetAll();
