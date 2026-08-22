@@ -6,66 +6,66 @@ const PLAN_END   = '2027-03-05';
 
 const GFG_MODULES = [
   { id:'basics', name:'DSA Basics', color:'#457b9d', topics:[
-    {id:'basics-dsa-intro',    name:'DSA — What, Why and How?',    vt:2,  pt:0 },
-    {id:'basics-analysis',     name:'Analysis of Algorithms',       vt:15, pt:0 },
-    {id:'basics-arrays',       name:'Arrays',                       vt:12, pt:15},
-    {id:'basics-recursion',    name:'Recursion',                    vt:14, pt:13},
-    {id:'basics-hashing',      name:'Hashing',                      vt:17, pt:2 },
-    {id:'basics-searching',    name:'Searching',                    vt:3,  pt:5 },
-    {id:'basics-sorting',      name:'Sorting',                      vt:33, pt:9 },
-    {id:'basics-ll',           name:'Linked List',                  vt:20, pt:18},
-    {id:'basics-circular-ll',  name:'Circular Linked List',         vt:9,  pt:9 },
-    {id:'basics-doubly-ll',    name:'Doubly Linked List',           vt:9,  pt:13},
-    {id:'basics-stack',        name:'Stack',                        vt:6,  pt:2 },
-    {id:'basics-queue',        name:'Queue',                        vt:4,  pt:2 },
-    {id:'basics-dequeue',      name:'Dequeue',                      vt:2,  pt:0 },
-    {id:'basics-tree',         name:'Tree',                         vt:15, pt:32},
-    {id:'basics-bst',          name:'Binary Search Tree',           vt:19, pt:9 },
-    {id:'basics-heap',         name:'Heap',                         vt:5,  pt:1 },
+    {id:'basics-dsa-intro', name:'DSA — What, Why and How?', v:[{n:'Why is DSA Important ??',s:391},{n:'Roadmap to learn DSA',s:883}]},
+    {id:'basics-analysis', name:'Analysis of Algorithms', v:[{n:'Analysis of Algorithms(Background)',s:380},{n:'Asymptotic Analysis',s:790},{n:'Best, Average and Worst cases',s:414},{n:'Order of Growth',s:581},{n:'Asymptotic Notation',s:425},{n:'Big O Notation',s:790},{n:'Omega Notation',s:536},{n:'Theta Notation',s:513},{n:'Analysis of Common loops',s:556},{n:'Analysis of multiple loops',s:303},{n:'Analysis of Recursion (Introduction)',s:246},{n:'Recursion Tree Method for Solving Recurrences',s:394},{n:'More Example Recurrences',s:323},{n:'Upper Bounds Using Recursion Tree Method',s:426},{n:'Space Complexity',s:1357}]},
+    {id:'basics-arrays', name:'Arrays', v:[{n:'Introduction to Arrays',s:363},{n:'Array Types',s:370},{n:'Operations on Arrays (Part 1)',s:681},{n:'Operations on Arrays (Part 2)',s:351},{n:'Largest Element in an Array',s:584},{n:'Check if an Array is Sorted',s:450},{n:'Second Largest Element in Array',s:762},{n:'Reverse an Array',s:314},{n:'Remove duplicates from a sorted array',s:537},{n:'Left Rotate an Array by One',s:170},{n:'Left Rotate an Array by D places',s:589},{n:'Move Zeros to End',s:476}]},
+    {id:'basics-recursion', name:'Recursion', v:[{n:'Recursion Introduction',s:709},{n:'Applications of Recursion',s:324},{n:'Recursion Output Practice - Part 1',s:385},{n:'Recursion Output Practice - Part 2',s:652},{n:'Print N to 1 Using Recursion',s:247},{n:'Print 1 to N Using Recursion',s:293},{n:'Tail Recursion',s:622},{n:'Writing Base Cases in Recursion',s:448},{n:'Natural Number Sum using Recursion',s:348},{n:'Palindrome Check using Recursion',s:519},{n:'Sum of Digits Using Recursion',s:318},{n:'Rope Cutting Problem',s:618},{n:'Generate Subsets',s:501},{n:'Tower of Hanoi',s:1160}]},
+    {id:'basics-hashing', name:'Hashing', v:[{n:'Introduction to Hashing',s:407},{n:'Hashing Application',s:313},{n:'Direct Address Table',s:457},{n:'Hashing Functions',s:936},{n:'Collision Handling',s:255},{n:'Chaining',s:750},{n:'Implementation of Chaining',s:438},{n:'Open Addressing',s:1343},{n:'Double Hashing',s:1038},{n:'Implementation of Open Addressing',s:988},{n:'Chaining vs Open Addressing',s:369},{n:'Subarray with zero sum',s:552},{n:'Subarray with given Sum',s:566},{n:'Longest subarray with given sum',s:1002},{n:'Longest subarray with equal number of 0\'s and 1\'s',s:411},{n:'Count Distinct Elements',s:433},{n:'Frequencies of array elements',s:678}]},
+    {id:'basics-searching', name:'Searching', v:[{n:'Binary Search (Iterative)',s:672},{n:'Binary Search (Recursive)',s:557},{n:'Analysis of Binary Search',s:558}]},
+    {id:'basics-sorting', name:'Sorting', v:[{n:'Stability in Sorting Algorithm',s:508},{n:'Bubble Sort',s:733},{n:'Selection Sort',s:614},{n:'Insertion Sort',s:755},{n:'Merge sort introduction',s:145},{n:'Merge two sorted arrays',s:685},{n:'Merge function of Merge sort',s:387},{n:'Merge Sorting Algorithm',s:901},{n:'Merge Sort Analysis',s:459},{n:'Naive partition',s:325},{n:'Lomuto Partition',s:1065},{n:'Hoare partition',s:999},{n:'Quick Sort Introduction',s:372},{n:'QuickSort using Lomuto Partition',s:811},{n:'QuickSort using Hoare Partition',s:649},{n:'QuickSort analysis',s:1068},{n:'Space Analysis of QuickSort',s:491},{n:'Choice of pivot and worst case of quick sort',s:327},{n:'Heap Sort',s:773},{n:'Counting Sort',s:1171},{n:'Radix Sort',s:925},{n:'Bucket Sort',s:1032},{n:'Minimum Difference in an Array',s:401},{n:'Intersection of two sorted arrays',s:507},{n:'Union of two sorted arrays',s:641},{n:'Count inversions in Array',s:896},{n:'Tail call elimination in QuickSort',s:167},{n:'Kth smallest element',s:782},{n:'Sort an Array with two types of elements',s:534},{n:'Sort an array with three types of elements',s:695},{n:'Merge overlapping intervals',s:1516},{n:'Meeting the maximum guests',s:640},{n:'Overview of sorting algorithm',s:918}]},
+    {id:'basics-ll', name:'Linked List', v:[{n:'Problems with Array Data Structure',s:835},{n:'Introduction to Linked List',s:203},{n:'Simple Linked List Implementation in C++',s:523},{n:'Simple Linked List Implementation in Java',s:371},{n:'Traversing a Linked List in C++',s:409},{n:'Traversing a Linked List in Java',s:308},{n:'Recursive Traversal of Singly Linked List',s:259},{n:'Search in a Linked List (Iterative and Recursive)',s:669},{n:'Insert at Begin of Singly Linked List',s:362},{n:'Insert at the end of Singly Linked List',s:314},{n:'Delete First Node of Singly Linked List',s:202},{n:'Delete Last Node of Singly Linked List',s:352},{n:'Insert at given position in Singly Linked List',s:456},{n:'Sorted Insert in a Singly Linked List',s:635},{n:'Middle of linked list',s:415},{n:'Nth Node from end of linked list',s:541},{n:'Reverse a linked list iterative',s:602},{n:'Recursive reverse a linked list (Part 1)',s:429},{n:'Recursive reverse a linked list (Part 2)',s:422},{n:'Remove duplicates from a sorted Singly Linked List',s:600}]},
+    {id:'basics-circular-ll', name:'Circular Linked List', v:[{n:'Circular Linked List in C++',s:164},{n:'Circular Linked List in Java',s:163},{n:'Circular Linked List (Advantages & Disadvantages)',s:265},{n:'Circular Linked List Traversal in C++',s:359},{n:'Circular Linked List Traversal in Java',s:465},{n:'Insert at Begin of Circular Linked List',s:617},{n:'Insert at the end of Circular Linked List',s:512},{n:'Delete Head of Circular Linked List',s:342},{n:'Delete Kth of a Circular Linked List',s:434}]},
+    {id:'basics-doubly-ll', name:'Doubly Linked List', v:[{n:'Doubly Linked List in C++',s:169},{n:'Doubly Linked List in Java',s:177},{n:'Singly Vs Doubly Linked List (Advantages & Disadvantages)',s:361},{n:'Insert at Begin of Doubly Linked List',s:240},{n:'Insert at End Doubly Linked List',s:354},{n:'Reverse a Doubly Linked List',s:480},{n:'Delete Head of a Doubly Linked List',s:231},{n:'Delete Last of a Doubly Linked List',s:373},{n:'Circular Doubly Linked List',s:448}]},
+    {id:'basics-stack', name:'Stack', v:[{n:'Stack Data Structure',s:410},{n:'Array Implementation of Stack in C++',s:768},{n:'Array Implementation of Stack in Java',s:772},{n:'Linked List Implementation of Stack in C++',s:518},{n:'Linked List Implementation of Stack in Java',s:468},{n:'Applications of Stack',s:540}]},
+    {id:'basics-queue', name:'Queue', v:[{n:'Queue Data Structure',s:239},{n:'Application of Queue',s:403},{n:'Implementation of Queue using Array',s:931},{n:'Implementation of Queue using Linked List',s:700}]},
+    {id:'basics-dequeue', name:'Dequeue', v:[{n:'Deque Data Structure',s:546},{n:'Array Implementation of Deque',s:1039}]},
+    {id:'basics-tree', name:'Tree', v:[{n:'Tree Data Structure',s:266},{n:'Application of Tree',s:284},{n:'Binary Tree',s:389},{n:'Tree Traversal',s:545},{n:'Implementation of Inorder Traversal',s:504},{n:'Implementation of Preorder Traversal',s:326},{n:'Implementation of Postorder Traversal',s:265},{n:'Height of Binary Tree',s:460},{n:'Print Nodes at K distance',s:382},{n:'Level Order Traversal',s:627},{n:'Size of Binary Tree',s:737},{n:'Maximum in Binary Tree',s:537},{n:'Iterative Inorder Traversal',s:615},{n:'Iterative Preorder Traversal (Simple)',s:412},{n:'Iterative Preorder Traversal (Space Optimized)',s:593}]},
+    {id:'basics-bst', name:'Binary Search Tree', v:[{n:'Binary Search Tree(Background)',s:400},{n:'Binary Search Tree(Introduction)',s:500},{n:'Search in BST (Introduction)',s:229},{n:'Search in BST C++',s:457},{n:'Search in BST Java',s:427},{n:'Insert in BST',s:211},{n:'Insert in BST C++',s:439},{n:'Insert in BST Java',s:448},{n:'Deletion in BST',s:302},{n:'BST deletion in C++',s:499},{n:'BST Deletion in Java',s:481},{n:'Floor in BST',s:456},{n:'Floor in BST in CPP',s:248},{n:'Floor in BST Java',s:211},{n:'Ceil in BST',s:462},{n:'Self Balancing BST',s:595},{n:'AVL Tree',s:789},{n:'Red Black Tree',s:444},{n:'Applications of BST',s:343}]},
+    {id:'basics-heap', name:'Heap', v:[{n:'Binary Heap Introduction',s:552},{n:'Binary Heap Implementation',s:99},{n:'Binary Heap Insert',s:398},{n:'Binary Heap (Heapify and Extract)',s:1103},{n:'Binary Heap (Decrease Key, Delete and Build Heap)',s:922}]},
   ]},
   { id:'libraries', name:'Libraries (Java)', color:'#6a994e', topics:[
-    {id:'libs-collection-overview', name:'Collection Overview',         vt:9,  pt:0 },
-    {id:'libs-lambda',              name:'Java Lambda Expressions',     vt:3,  pt:3 },
-    {id:'libs-streams',             name:'Java Streams',                vt:4,  pt:4 },
-    {id:'libs-arraylist',           name:'ArrayList',                   vt:7,  pt:6 },
-    {id:'libs-linkedlist',          name:'LinkedList (Java)',           vt:3,  pt:3 },
-    {id:'libs-stack',               name:'Stack (Java)',                vt:6,  pt:9 },
-    {id:'libs-queue',               name:'Queue (Java)',                vt:2,  pt:5 },
-    {id:'libs-deque',               name:'Deque (Java)',                vt:2,  pt:5 },
-    {id:'libs-priority-queue',      name:'PriorityQueue',               vt:5,  pt:7 },
-    {id:'libs-hashset',             name:'HashSet and LinkedHashSet',   vt:5,  pt:4 },
-    {id:'libs-treeset',             name:'TreeSet',                     vt:2,  pt:3 },
-    {id:'libs-hashmap',             name:'HashMap and LinkedHashMap',   vt:6,  pt:4 },
-    {id:'libs-treemap',             name:'TreeMap',                     vt:4,  pt:5 },
-    {id:'libs-string',              name:'String (Java)',               vt:6,  pt:6 },
-    {id:'libs-comparator',          name:'Comparator & Comparable',     vt:3,  pt:2 },
-    {id:'libs-arrays-class',        name:'Arrays Class',                vt:9,  pt:4 },
-    {id:'libs-collections-class',   name:'Collections class',           vt:6,  pt:6 },
-    {id:'libs-sorting',             name:'Sorting (Java)',              vt:10, pt:5 },
+    {id:'libs-collection-overview', name:'Collection Overview', v:[{n:'Java Collections Framework',s:519},{n:'Collection Hierarchy',s:1038},{n:'Generics in Java',s:711},{n:'Wildcard in Generics',s:795},{n:'Collection Interface',s:446},{n:'Iterator in Java',s:547},{n:'toArray() Methods',s:726},{n:'Collection Bulk Operations',s:884},{n:'Iterating Through Collections',s:825}]},
+    {id:'libs-lambda', name:'Java Lambda Expressions', v:[{n:'Lambda Expressions',s:658},{n:'Method References in Java',s:444},{n:'Lambda Expressions Syntax',s:909}]},
+    {id:'libs-streams', name:'Java Streams', v:[{n:'Stream in Java',s:476},{n:'Stream Applications',s:225},{n:'Stream Hierarchy and Methods',s:354},{n:'Java Stream Examples',s:663}]},
+    {id:'libs-arraylist', name:'ArrayList', v:[{n:'List Interface in Java',s:490},{n:'ListIterator in Java',s:599},{n:'ArrayList in Java',s:299},{n:'ArrayList Working',s:943},{n:'Java ArrayList Methods',s:858},{n:'Java ArrayList Traversal',s:620},{n:'Sample Problems - List of smaller elements in Java',s:241}]},
+    {id:'libs-linkedlist', name:'LinkedList (Java)', v:[{n:'LinkedList in Java',s:1347},{n:'Josephus Problem using LinkedList in Java',s:587},{n:'Design A DS for Remove and Print',s:387}]},
+    {id:'libs-stack', name:'Stack (Java)', v:[{n:'Stack in Java Collections',s:316},{n:'Sample Problem - Reverse order of items in Java',s:442},{n:'Sample Problem - Check for balanced parenthesis in Java',s:691},{n:'Sample Problem - Stock span problem in Java',s:1677},{n:'Sample Problem - Previous greater element in Java',s:660},{n:'Sample Problem - Next greater element in Java',s:752}]},
+    {id:'libs-queue', name:'Queue (Java)', v:[{n:'Queue in Java',s:729},{n:'Sample Problem - Reverse first K items of a queue in Java',s:397}]},
+    {id:'libs-deque', name:'Deque (Java)', v:[{n:'Deque in Java',s:484},{n:'ArrayDeque in Java',s:1245}]},
+    {id:'libs-priority-queue', name:'PriorityQueue', v:[{n:'PriorityQueue in Java',s:149},{n:'Sample Problem - Purchasing maximum items in Java',s:304},{n:'Sample Problem - K Largest Elements in Java',s:741},{n:'Sample Problem - Find K most frequent elements',s:626},{n:'Sample Problem - Find K most frequent in linear time in Java',s:914}]},
+    {id:'libs-hashset', name:'HashSet and LinkedHashSet', v:[{n:'Set Interface In Java',s:712},{n:'HashSet in Java',s:435},{n:'LinkedHashSet',s:391},{n:'Sample Problem - Print Distinct Elements in Java',s:414},{n:'Sample Problem - Print Repeating elements in Java',s:365}]},
+    {id:'libs-treeset', name:'TreeSet', v:[{n:'TreeSet In java',s:356},{n:'Sample Problem - Ceiling on right in Java',s:678}]},
+    {id:'libs-hashmap', name:'HashMap and LinkedHashMap', v:[{n:'Map interface in Java',s:579},{n:'Map Interface Methods In Java',s:617},{n:'HashMap in Java',s:439},{n:'LinkedHashMap',s:760},{n:'Sample Problem - DS for Balance in Java',s:492},{n:'Sample Problem - Print Frequencies in an Order',s:542}]},
+    {id:'libs-treemap', name:'TreeMap', v:[{n:'TreeMap in Java',s:382},{n:'Design A DS For item prices',s:650},{n:'Design A DS for prices Duplicates Allowed',s:917},{n:'Sample Problem - Count Greater Elements in Java',s:650}]},
+    {id:'libs-string', name:'String (Java)', v:[{n:'String in Java',s:916},{n:'StringBuilder and StringBuffer',s:243},{n:'StringBuilder and StringBuffer Methods',s:528},{n:'Sample Problem - Pangram Checking in Java',s:337},{n:'Java Sample Problem - Pattern Searching',s:488},{n:'Sample Problem - Find one extra character in Java',s:746}]},
+    {id:'libs-comparator', name:'Comparator & Comparable', v:[{n:'Comparable interface',s:390},{n:'Comparator Interface',s:417},{n:'Comparator Methods and Examples',s:331}]},
+    {id:'libs-arrays-class', name:'Arrays Class', v:[{n:'Arrays Class in Java',s:519},{n:'fill() in Java',s:349},{n:'Binary search in Java',s:753},{n:'Arrays.equals()',s:393},{n:'Arrays.mismatch()',s:399},{n:'Arrays.compare()',s:355},{n:'Arrays.aslist() in Java',s:366},{n:'Arrays.toString() in Java',s:253},{n:'Median of a Row Wise Sorted Matrix Java',s:802}]},
+    {id:'libs-collections-class', name:'Collections class', v:[{n:'Collections Class in Java',s:699},{n:'Collections.fill() in Java',s:158},{n:'Collections.reverse() in Java',s:136},{n:'Collections.binarySearch in Java',s:495},{n:'Collections max and min In Java',s:444},{n:'Collections.frequency() in Java',s:497}]},
+    {id:'libs-sorting', name:'Sorting (Java)', v:[{n:'Sorting in Java',s:309},{n:'Arrays.sort in Java',s:598},{n:'Collections.Sort in Java',s:386},{n:'Sample Problem - The Thief Problem in Java',s:272},{n:'Sample Problem - Chocolate distribution problem in Java',s:659},{n:'Sample Problem - Keeping indexes after sorting in Java',s:338},{n:'Sample Problem - Sort an array according to other in Java',s:413},{n:'Sample Problem - Sort students by marks in Java',s:308},{n:'Sample Problem - Sort elements by frequency in Java',s:496},{n:'Sort Elements by Frequency in Linear time',s:798}]},
   ]},
   { id:'advanced', name:'DSA Advanced', color:'#d4a373', topics:[
-    {id:'adv-mathematics',  name:'Mathematics',                      vt:12, pt:11},
-    {id:'adv-bit-magic',    name:'Bit Magic',                        vt:12, pt:12},
-    {id:'adv-recursion',    name:'Recursion (Adv)',                  vt:3,  pt:7 },
-    {id:'adv-arrays',       name:'Arrays (Adv)',                     vt:19, pt:20},
-    {id:'adv-searching',    name:'Searching (Adv)',                  vt:16, pt:13},
-    {id:'adv-sorting',      name:'Sorting (Adv)',                    vt:12, pt:16},
-    {id:'adv-matrix',       name:'Matrix',                           vt:12, pt:15},
-    {id:'adv-hashing',      name:'Hashing (Adv)',                    vt:12, pt:19},
-    {id:'adv-strings',      name:'Strings (Adv)',                    vt:19, pt:33},
-    {id:'adv-ll',           name:'Linked List (Adv)',                vt:12, pt:13},
-    {id:'adv-stack',        name:'Stack (Adv)',                      vt:17, pt:11},
-    {id:'adv-queue-deque',  name:'Queue and Deque (Adv)',            vt:6,  pt:3 },
-    {id:'adv-tree',         name:'Tree (Adv)',                       vt:15, pt:27},
-    {id:'adv-bst',          name:'Binary Search Tree (Adv)',         vt:13, pt:14},
-    {id:'adv-heap',         name:'Heap (Adv)',                       vt:5,  pt:8 },
-    {id:'adv-graph',        name:'Graph',                            vt:29, pt:23},
-    {id:'adv-greedy',       name:'Greedy',                           vt:12, pt:6 },
-    {id:'adv-backtracking', name:'Backtracking',                     vt:4,  pt:8 },
-    {id:'adv-dp',           name:'Dynamic Programming',              vt:30, pt:28},
-    {id:'adv-trie',         name:'Trie',                             vt:4,  pt:6 },
-    {id:'adv-segment-bit',  name:'Segment and Binary Indexed Trees', vt:9,  pt:6 },
-    {id:'adv-disjoint-set', name:'Disjoint Set',                     vt:5,  pt:4 },
+    {id:'adv-mathematics', name:'Mathematics', v:[{n:'Count Digits',s:180},{n:'Palindrome Numbers',s:445},{n:'Factorial of a Number',s:330},{n:'Trailing Zeros in Factorial',s:537},{n:'GCD or HCF of two Numbers',s:622},{n:'LCM of Two Numbers',s:236},{n:'Check for Prime',s:856},{n:'Prime Factors',s:1051},{n:'All Divisors of a Number',s:574},{n:'Sieve of Eratosthenes',s:831},{n:'Computing Power',s:368},{n:'Iterative Power',s:565}]},
+    {id:'adv-bit-magic', name:'Bit Magic', v:[{n:'Binary Representation of Negative Numbers',s:621},{n:'Bitwise Operators in CPP (Part 1)',s:299},{n:'Bitwise Operators in CPP (Part 2)',s:669},{n:'Bitwise Operator in Java (Part 1)',s:194},{n:'Bitwise Operators in Java (Part 2)',s:463},{n:'Bitwise Operators in Java (Part 3)',s:335},{n:'Check if Kth bit is set or not',s:468},{n:'Count Set Bits',s:1032},{n:'Power of Two',s:390},{n:'One Odd Occurring',s:455},{n:'Two Odd Occurring',s:675},{n:'Power Set using Bitwise',s:394}]},
+    {id:'adv-recursion', name:'Recursion (Adv)', v:[{n:'Josephus Problem',s:1356},{n:'Subset Sum Problem (Recursive Solution) (Medium)',s:653},{n:'Printing all Permutations',s:670}]},
+    {id:'adv-arrays', name:'Arrays (Adv)', v:[{n:'Left Rotate an Array by D places',s:589},{n:'Move Zeros to End',s:476},{n:'Leaders in an Array problem',s:592},{n:'Frequencies in a Sorted Array',s:419},{n:'Maximum Difference Problem with Order',s:484},{n:'Stock Buy and Sell Problem (Part 1)',s:417},{n:'Stock Buy and Sell problem (Part 2)',s:283},{n:'Trapping Rain Water',s:830},{n:'Maximum consecutive 1s',s:303},{n:'Maximum subarray sum',s:678},{n:'Longest Even Odd Subarray',s:508},{n:'Maximum Circular Sum Subarray',s:1111},{n:'Majority Element',s:823},{n:'Minimum Consecutive Flips',s:882},{n:'Sliding Window Technique',s:500},{n:'Subarray with Given Sum',s:540},{n:'Prefix Sum',s:575},{n:'Equilibrium Point',s:500},{n:'Maximum Appearing Element',s:609}]},
+    {id:'adv-searching', name:'Searching (Adv)', v:[{n:'Index of first Occurrence in Sorted',s:538},{n:'Index of last Occurrence in Sorted',s:528},{n:'Count Occurrences in Sorted',s:314},{n:'Count 1s in a Sorted Binary Array',s:369},{n:'Square root',s:509},{n:'Search in Infinite Sized Array',s:619},{n:'Search in Sorted Rotated Array',s:944},{n:'Find a Peak Element',s:659},{n:'Two Pointers Approach',s:666},{n:'Triplet in a Sorted Array',s:506},{n:'Median of Two Sorted Arrays',s:1114},{n:'Majority Element',s:823},{n:'Repeating Elements Part (1)',s:379},{n:'Repeating Elements Part (2)',s:827},{n:'Allocate Minimum Pages (Naive Method)',s:534},{n:'Allocate Minimum Pages (Binary Search)',s:690}]},
+    {id:'adv-sorting', name:'Sorting (Adv)', v:[{n:'Minimum Difference in an Array',s:401},{n:'Intersection of two sorted arrays',s:507},{n:'Union of two sorted arrays',s:641},{n:'Count inversions in Array',s:896},{n:'Tail call elimination in QuickSort',s:167},{n:'Cycle Sort',s:1085},{n:'Kth smallest element',s:782},{n:'Sort an Array with two types of elements',s:534},{n:'Sort an array with three types of elements',s:695},{n:'Merge overlapping intervals',s:1516},{n:'Meeting the maximum guests',s:640},{n:'Overview of sorting algorithm',s:918}]},
+    {id:'adv-matrix', name:'Matrix', v:[{n:'Multidimensional array in CPP',s:847},{n:'Passing 2D arrays as arguments in CPP',s:669},{n:'Multidimensional array in Java',s:461},{n:'Passing 2D arrays as arguments in Java',s:158},{n:'Matrix in Snake Pattern',s:209},{n:'Matrix Boundary Traversal',s:324},{n:'Transpose of a Matrix',s:373},{n:'Rotate Matrix Anti-clockwise by 90',s:483},{n:'Spiral Traversal of Matrix',s:608},{n:'Search in Row-wise and Column-wise sorted matrix',s:713},{n:'Median of a Row Wise Sorted Matrix C++',s:807},{n:'Median of a Row Wise Sorted Matrix Java',s:802}]},
+    {id:'adv-hashing', name:'Hashing (Adv)', v:[{n:'Intersection of two arrays',s:487},{n:'Union of two unsorted arrays',s:503},{n:'Pair with given sum in unsorted array',s:472},{n:'Subarray with zero sum',s:552},{n:'Subarray with given sum',s:566},{n:'Longest subarray with given sum',s:1002},{n:'Longest subarray with equal number of 0\'s and 1\'s',s:411},{n:'Longest common span with same sum in binary arrays',s:476},{n:'Longest Consecutive Subsequence',s:960},{n:'Count Distinct Elements In Every Window',s:657},{n:'More than n/k Occurences',s:523},{n:'More than n/k Occurences (O(nk) solution)',s:659}]},
+    {id:'adv-strings', name:'Strings (Adv)', v:[{n:'Introduction to String',s:858},{n:'Strings in C++',s:1088},{n:'String in Java',s:916},{n:'Palindrome Check',s:557},{n:'Check if a String is Subsequence of Other',s:805},{n:'Check for Anagram',s:445},{n:'Leftmost Repeating Character',s:766},{n:'Leftmost Non-repeating Element',s:596},{n:'Reverse words in a string',s:885},{n:'Overview of Pattern Searching',s:433},{n:'Naive Pattern Searching',s:476},{n:'Improved Naive Pattern Searching for Distinct',s:700},{n:'Rabin Karp Algorithm',s:1348},{n:'KMP Algorithm (Part 1 : Constructing LPS Array)',s:1500},{n:'KMP Algorithm (Part 2 : Complete Algorithm)',s:1290},{n:'Check if Strings are Rotations',s:437},{n:'Anagram Search',s:677},{n:'Lexicographic Rank of a String',s:1150},{n:'Longest Substring with Distinct Characters',s:1078}]},
+    {id:'adv-ll', name:'Linked List (Adv)', v:[{n:'Reverse a linked list in groups of size k',s:783},{n:'Detect loop',s:848},{n:'Detect loop using floyd cycle detection',s:817},{n:'Detect and remove loop in linked list',s:1093},{n:'Delete node with only pointer given to it',s:274},{n:'Segregate even odd nodes of linked list',s:404},{n:'Intersection Point of two linked list',s:482},{n:'Pairwise swap nodes of linked list',s:577},{n:'Clone a linked list using a random pointer',s:763},{n:'LRU Cache Design',s:804},{n:'Merge two sorted linked lists',s:903},{n:'Palindrome Linked List',s:618}]},
+    {id:'adv-stack', name:'Stack (Adv)', v:[{n:'Implement two Stacks in an Array',s:752},{n:'K Stacks in an array',s:986},{n:'Stock span problem',s:1601},{n:'Previous Greater Element',s:482},{n:'Next Greater Element',s:889},{n:'Largest Rectangular Area in a Histogram (Part 1)',s:759},{n:'Largest Rectangular Area in a Histogram (Part 2)',s:701},{n:'Largest Rectangle with all 1\'s',s:857},{n:'Stack with getMin() in O(1)',s:545},{n:'Design a Stack with getMin() in O(1) Space',s:985},{n:'Infix, Prefix and Postfix Introduction',s:594},{n:'Infix to Postfix (Simple Solution)',s:575},{n:'Infix to Postfix (Efficient Solution)',s:752},{n:'Evaluation of Postfix',s:624},{n:'Infix to Prefix (Simple Solution)',s:540},{n:'Infix to Prefix (Efficient Solution)',s:947},{n:'Evaluation of Prefix',s:411}]},
+    {id:'adv-queue-deque', name:'Queue and Deque (Adv)', v:[{n:'Implementing stack using queue',s:407},{n:'Reversing a Queue',s:422},{n:'Generate numbers with given digits',s:390},{n:'Maximums of all subarrays of size k',s:1226},{n:'First Circular Tour',s:1672},{n:'Design a Data Structure with Min and Max operations',s:312}]},
+    {id:'adv-tree', name:'Tree (Adv)', v:[{n:'Level Order Traversal Line by Line (Part 1)',s:369},{n:'Level Order Traversal Line by Line (Part 2)',s:225},{n:'Print Left View of Binary Tree',s:574},{n:'Children Sum Property',s:387},{n:'Check for Balanced Binary Tree',s:699},{n:'Maximum Width of Binary Tree',s:299},{n:'Convert Binary Tree to Doubly Linked List',s:923},{n:'Construct Binary Tree from Inorder and Preorder',s:1210},{n:'Tree Traversal in Spiral Form',s:1301},{n:'Diameter of a Binary Tree',s:926},{n:'LCA of Binary Tree (Part 1)',s:777},{n:'LCA of Binary Tree (Part 2)',s:652},{n:'Burn a Binary Tree from a Leaf',s:1004},{n:'Count nodes in a Complete Binary Tree',s:1108},{n:'Serialize and Deserialize a Binary Tree',s:1156}]},
+    {id:'adv-bst', name:'Binary Search Tree (Adv)', v:[{n:'Self Balancing BST',s:595},{n:'AVL Tree',s:789},{n:'Red Black Tree',s:444},{n:'Applications of BST',s:343},{n:'Ceiling on left side in an array',s:429},{n:'Find Kth Smallest in BST',s:752},{n:'Check for BST',s:892},{n:'Fix BST with Two Nodes Swapped',s:699},{n:'Pair Sum with given BST',s:601},{n:'Vertical Sum in a Binary Tree',s:842},{n:'Vertical Traversal of Binary Tree',s:969},{n:'Top View of Binary Tree',s:808},{n:'Bottom View of Binary Tree',s:828}]},
+    {id:'adv-heap', name:'Heap (Adv)', v:[{n:'Heap Sort',s:773},{n:'K Closest Elements',s:737},{n:'Sort K-Sorted Array',s:455},{n:'Merge K Sorted Arrays',s:1236},{n:'Median of a Stream',s:1236}]},
+    {id:'adv-graph', name:'Graph', v:[{n:'Introduction to Graph',s:533},{n:'Graph Representation (Adjacency Matrix)',s:437},{n:'Graph Representation (Adjacency List)',s:426},{n:'Adjacency List implementation in CPP',s:275},{n:'Adjacency List implementation in Java',s:344},{n:'Adjacency Matrix and List Comparison',s:375},{n:'Breadth First Search',s:1216},{n:'Applications of BFS',s:210},{n:'Depth First Search',s:1207},{n:'Applications of DFS',s:325},{n:'Detect Cycle in Undirected Graph',s:434},{n:'Detect Cycle in a Directed Graph (Part 1)',s:614},{n:'Topological Sorting (Kahn\'s BFS Based Algortihm)',s:752},{n:'Detect Cycle in a Directed Graph (Part 2)',s:276},{n:'Topological Sorting (DFS Based Algorithm)',s:546},{n:'Shortest Path in DAG',s:582},{n:'Prim\'s Algorithm/Minimum Spanning Tree',s:566},{n:'Implementation of Prim\'s Algorithm C++',s:1012},{n:'Implementation of Prim\'s Algorithm Java',s:1031},{n:'Dijkstra\'s Shortest Path Algorithm',s:1142},{n:'Implementation of Dijkstra\'s Algorithm C++',s:663},{n:'Implementation of Dijkstra\'s Algorithm Java',s:606},{n:'Kosaraju\'s Algorithm Part 1',s:823},{n:'Kosaraju\'s Algorithm Part 2',s:662},{n:'Kruskal\'s Algorithm',s:1444},{n:'Bellman Ford Shortest Path Algorithm',s:771},{n:'Articulation Point',s:1353},{n:'Bridges in Graph',s:634},{n:'Tarjans Algorithm',s:864}]},
+    {id:'adv-greedy', name:'Greedy', v:[{n:'Introduction to Greedy Algorithms',s:727},{n:'Activity Selection Problem',s:505},{n:'Activity Selection Solution in C++',s:238},{n:'Activity Selection Solution in Java',s:320},{n:'Fractional Knapsack Problem',s:468},{n:'Fractional Knapsack in C++',s:342},{n:'Fractional Knapsack in Java',s:588},{n:'Job Sequencing Problem',s:743},{n:'Huffman Coding (introduction)',s:536},{n:'Huffman Algorithms',s:865},{n:'CPP Implementation of Huffman coding',s:541},{n:'Java Implementation of Huffman coding',s:640}]},
+    {id:'adv-backtracking', name:'Backtracking', v:[{n:'Concepts of Backtracking',s:644},{n:'Rat In a Maze',s:627},{n:'N Queen Problem',s:1206},{n:'Sudoku Problem',s:846}]},
+    {id:'adv-dp', name:'Dynamic Programming', v:[{n:'Introduction to DP',s:286},{n:'Dynamic Programming Memoization',s:930},{n:'Dynamic Programming Tabulation',s:489},{n:'Longest Common Subsequence (Part 1)',s:1464},{n:'Longest Common Subsequence (Part 2)',s:547},{n:'Coin Change Count Combinations',s:828},{n:'Edit Distance Problem',s:899},{n:'Edit Distance Problem DP solution',s:675},{n:'Longest Increasing Subsequence Problem',s:1336},{n:'Longest Increasing Subsequence O(nlogn)',s:934},{n:'Maximum Cuts',s:622},{n:'Minimum coins to make a value',s:1310},{n:'Minimum Jumps to reach at end',s:1032},{n:'0-1 knapsack problem',s:872},{n:'0-1 knapsack problem DP Solution',s:823},{n:'Optimal Strategy for a Game',s:1629},{n:'Variation of LCS',s:825},{n:'Variation of LIS (Part 1)',s:796},{n:'Variations of LIS (Part 2)',s:710},{n:'Egg Dropping Puzzle - Part 1',s:789},{n:'Egg Dropping Puzzle - Part 2',s:580},{n:'Count BSTs with n keys',s:820},{n:'Maximum sum with no two consecutive',s:816},{n:'Subset Sum Problem (Recursive Solution) (Medium)',s:653},{n:'Subset Sum Problem (DP Solution) (Medium)',s:655},{n:'Matrix Chain Multiplication',s:966},{n:'Matrix Chain Multiplication (DP Solution) (Hard)',s:642},{n:'Palindrome Partitioning',s:952},{n:'Allocate Minimum Pages (Naive Method)',s:534},{n:'Allocate Minimum Pages (DP Solution) (Hard)',s:618}]},
+    {id:'adv-trie', name:'Trie', v:[{n:'Trie Data Structure (Introduction)',s:270},{n:'Trie (Representation, Search and Insert)',s:1308},{n:'Trie Delete',s:671},{n:'Count Distinct Rows in a Binary Matrix',s:457}]},
+    {id:'adv-segment-bit', name:'Segment and Binary Indexed Trees', v:[{n:'Segment Tree (Introduction)',s:1327},{n:'Constructing Segment Tree',s:611},{n:'Range Query on Segment Tree',s:828},{n:'Update Query on Segment Tree',s:603},{n:'Binary Indexed Tree (Intoduction)',s:370},{n:'Binary Indexed Tree (An Example Problem)',s:360},{n:'Binary Indexed Tree (Prefix Sum)',s:919},{n:'Binary Indexed Tree (Prefix Sum Implemention)',s:694},{n:'Binary Indexed Tree (Update Operation)',s:641}]},
+    {id:'adv-disjoint-set', name:'Disjoint Set', v:[{n:'Disjoint Set Introduction',s:617},{n:'Find and Union Operations on Disjoint Sets',s:491},{n:'Union by Rank',s:460},{n:'Path Compression',s:309},{n:'Kruskal\'s Algorithm',s:1444}]},
   ]},
 ];
 
@@ -329,12 +329,27 @@ function getDefaultTracks() {
   return t;
 }
 
+const STATE_VERSION = '4.0';   // GFG moved from vc/pc counters to per-video done{}
+
 function getDefaultState() {
   const topics = {};
   GFG_MODULES.forEach(m => m.topics.forEach(t => {
-    topics[t.id] = {vc:0, pc:0};
+    topics[t.id] = {done:{}};
   }));
-  return {version:'3.0', gfg:{topics}, dailyChecks:{}, dailyLog:{}, tracks:getDefaultTracks()};
+  return {version:STATE_VERSION, gfg:{topics}, dailyChecks:{}, dailyLog:{}, tracks:getDefaultTracks()};
+}
+
+// Older states (version < 4.0) stored GFG progress as vc/pc counters, which
+// don't map onto per-video done{} sets — those get a fresh start. Anything
+// already logged for slot A under the old shape is dropped too, so a stale
+// snapshot can't render with missing video/duration fields.
+function migrateGfg(s) {
+  if (s.version === STATE_VERSION) return s;
+  s.gfg = getDefaultState().gfg;
+  Object.keys(s.dailyLog || {}).forEach(d => { if (s.dailyLog[d]) delete s.dailyLog[d].a; });
+  Object.keys(s.dailyChecks || {}).forEach(d => { if (s.dailyChecks[d]) delete s.dailyChecks[d].a; });
+  s.version = STATE_VERSION;
+  return s;
 }
 
 function loadState() {
@@ -349,7 +364,7 @@ function loadState() {
     // leave STATE.tracks.java undefined
     if (!s.tracks) s.tracks = getDefaultTracks();
     else Object.keys(getDefaultTracks()).forEach(k => { if (!s.tracks[k]) s.tracks[k] = {}; });
-    return s;
+    return migrateGfg(s);
   } catch(e) { return getDefaultState(); }
 }
 
@@ -408,7 +423,11 @@ function daysBetween(a, b) {
 // (marking items directly); both feed the same queues.
 
 const SLOT_H = {a: 2, b: 2.5, c: 1.5, d: 2};
-const GFG_UNIT_W = {v: 1, p: 1.4};   // a practice problem costs more than a video
+// Slot A is a 2h block, but only real GFG video runtime is auto-scheduled —
+// ~1.5h/day of watching, leaving the remaining ~30min for practicing the
+// problems yourself (untracked). Once the video backlog is empty the slot
+// hands over at the full 2h, same as every other stream.
+const GFG_DAILY_VIDEO_H = 1.5;
 
 const STREAMS = {
   dsa:    {label: 'DSA · GFG',      badge: 'dsa'},
@@ -461,8 +480,7 @@ function streamUnits(id) {
   if (id === 'dsa') {
     const out = [];
     GFG_MODULES.forEach(m => m.topics.forEach(t => {
-      for (let i = 1; i <= t.vt; i++) out.push({s:'dsa', kind:'gfg', topic:t.id, name:t.name, gname:m.name, type:'v', idx:i, w:GFG_UNIT_W.v});
-      for (let i = 1; i <= t.pt; i++) out.push({s:'dsa', kind:'gfg', topic:t.id, name:t.name, gname:m.name, type:'p', idx:i, w:GFG_UNIT_W.p});
+      t.v.forEach((vid, i) => out.push({s:'dsa', kind:'gfg', topic:t.id, topicName:t.name, name:vid.n, gname:m.name, idx:i+1, w:vid.s/3600}));
     }));
     return out;
   }
@@ -476,8 +494,8 @@ function streamUnits(id) {
 
 function unitDone(u) {
   if (u.kind === 'gfg') {
-    const s = STATE.gfg.topics[u.topic] || {};
-    return u.type === 'v' ? u.idx <= (s.vc || 0) : u.idx <= (s.pc || 0);
+    const s = STATE.gfg.topics[u.topic];
+    return !!(s && s.done && s.done[u.idx]);
   }
   return ((STATE.tracks[u.track] || {})[u.id] || 'not-started') === 'done';
 }
@@ -529,30 +547,55 @@ function buildPlan() {
     return null;
   }
 
+  // DSA doesn't hold every Slot A for the rest of the plan just because its
+  // backlog is nonzero — it only needs enough sessions to cover the real
+  // video runtime at ~1.5h/day. The rest of Slot A frees up to the handover
+  // chain immediately, same as if DSA had actually finished. Shrinks as
+  // videos get marked done, so streams behind DSA pull those sessions in.
+  const dsaHoursLeft = streamUnits('dsa').filter(u => !unitDone(u)).reduce((a, u) => a + u.w, 0);
+  const dsaSessionsNeeded = Math.ceil(dsaHoursLeft / GFG_DAILY_VIDEO_H);
+  let dsaSlotsSeen = 0;
+
   WEEKS.forEach(w => {
     if (w.isBuffer) return;
     w.days.forEach(d => {
       if (d.d < from) return;
       ['a','b','c','d'].forEach(sl => {
         if ((STATE.dailyChecks[d.d] || {})[sl]) return;   // already spent
-        const st = resolveStream(streamForSlot(d, sl));
+        let st;
+        if (sl === 'a') {
+          if (dsaSlotsSeen < dsaSessionsNeeded) { st = 'dsa'; dsaSlotsSeen++; }
+          else {
+            // Today's video budget is used up — hand this session down
+            // DSA's chain like any exhausted stream; if nothing else needs
+            // it either, DSA gets a bonus session rather than sitting idle.
+            st = (HANDOVER.dsa || []).find(s => remaining[s]) || (remaining.dsa ? 'dsa' : null);
+          }
+        } else {
+          st = resolveStream(streamForSlot(d, sl));
+        }
         if (!st) return;
-        (slotsBy[st] = slotsBy[st] || []).push({date: d.d, slot: sl, h: SLOT_H[sl]});
+        const h = (sl === 'a' && st === 'dsa') ? GFG_DAILY_VIDEO_H : SLOT_H[sl];
+        (slotsBy[st] = slotsBy[st] || []).push({date: d.d, slot: sl, h});
       });
     });
   });
 
   // Baseline = the whole curriculum over every session the plan ever had.
   // Comparing today's density against it is what "behind" actually means, and
-  // it works for streams measured in hours and in problem counts alike.
+  // it works for streams measured in hours and in problem counts alike. DSA's
+  // baseline is its full video runtime rounded up to whole sessions, since
+  // that — not 193 days of Slot A — is what it was ever really sized for.
   const baseH = {};
   WEEKS.forEach(w => {
     if (w.isBuffer) return;
     w.days.forEach(d => ['a','b','c','d'].forEach(sl => {
       const st = streamForSlot(d, sl);
-      if (st) baseH[st] = (baseH[st] || 0) + SLOT_H[sl];
+      if (st && st !== 'dsa') baseH[st] = (baseH[st] || 0) + SLOT_H[sl];
     }));
   });
+  const dsaFullH = streamUnits('dsa').reduce((a, u) => a + u.w, 0);
+  baseH.dsa = Math.ceil(dsaFullH / GFG_DAILY_VIDEO_H) * GFG_DAILY_VIDEO_H;
 
   Object.keys(STREAMS).forEach(st => {
     const slots = slotsBy[st] || [];
@@ -592,9 +635,8 @@ function assignmentFor(date, slot) {
 function applyUnits(units, done) {
   units.forEach(u => {
     if (u.kind === 'gfg') {
-      const s = STATE.gfg.topics[u.topic] = STATE.gfg.topics[u.topic] || {vc: 0, pc: 0};
-      const f = u.type === 'v' ? 'vc' : 'pc';
-      s[f] = done ? Math.max(s[f] || 0, u.idx) : Math.min(s[f] || 0, u.idx - 1);
+      const s = STATE.gfg.topics[u.topic] = STATE.gfg.topics[u.topic] || {done: {}};
+      if (done) s.done[u.idx] = true; else delete s.done[u.idx];
     } else {
       if (!STATE.tracks[u.track]) STATE.tracks[u.track] = {};
       STATE.tracks[u.track][u.id] = done ? 'done' : 'not-started';
@@ -753,23 +795,25 @@ function renderUnits(streamId, a) {
   return html + `<div class="u-meta">${units.length} item${units.length > 1 ? 's' : ''} · ~${fmtH(h)} of material</div>`;
 }
 
-// Consecutive videos/problems from the same topic collapse into a range.
+// Consecutive videos from the same topic collapse into one run, listing
+// every real video title in the run and the total watch time.
 function renderGfgUnits(units) {
   const runs = [];
   units.forEach(u => {
     const last = runs[runs.length - 1];
-    if (last && last.topic === u.topic && last.type === u.type && u.idx === last.to + 1) last.to = u.idx;
-    else runs.push({topic: u.topic, name: u.name, gname: u.gname, type: u.type, from: u.idx, to: u.idx});
+    if (last && last.topic === u.topic && u.idx === last.to + 1) { last.to = u.idx; last.h += u.w; last.titles.push(u.name); }
+    else runs.push({topic: u.topic, topicName: u.topicName, gname: u.gname, from: u.idx, to: u.idx, h: u.w, titles: [u.name]});
   });
   let html = '', lastG = null;
   runs.forEach(r => {
     if (r.gname !== lastG) { html += `<div class="u-group">${r.gname}</div>`; lastG = r.gname; }
-    const kind  = r.type === 'v' ? 'videos' : 'problems';
-    const range = r.from === r.to ? `#${r.from}` : `#${r.from}–${r.to}`;
     const n = r.to - r.from + 1;
-    html += `<div class="u-item"><strong>${r.name}</strong> · ${kind} ${range} <span style="color:var(--dim)">(${n})</span></div>`;
+    const countLbl = n > 1 ? ` <span style="color:var(--dim)">(${n} videos)</span>` : '';
+    html += `<div class="u-item"><strong>${r.topicName}</strong>${countLbl} · ${fmtH(r.h)}
+      <div style="color:var(--dim);font-size:11.5px;margin-top:1px">${r.titles.join(' · ')}</div></div>`;
   });
-  return html + `<div class="u-meta">${units.length} item${units.length > 1 ? 's' : ''} today</div>`;
+  const totH = units.reduce((s, u) => s + u.w, 0);
+  return html + `<div class="u-meta">${units.length} video${units.length > 1 ? 's' : ''} · ${fmtH(totH)} today</div>`;
 }
 
 function slotBlock(letter, label, badgeClass, content, date, slot, checked, preview) {
@@ -816,7 +860,7 @@ function renderPace() {
     const p = pace[k], S = STREAMS[k];
     const pct = p.total ? Math.round(p.done / p.total * 100) : 0;
     const per = p.sessions
-      ? (k === 'dsa' ? (Math.round(p.load * 10) / 10) + ' items' : fmtH(p.load)) + ' / session'
+      ? fmtH(p.load) + ' / session'
       : (p.left ? 'no sessions remain' : 'complete');
     let flag = '', cls = '';
     if (p.stuck)              { flag = `⚠ ${p.left} stranded`; cls = ' behind'; }
@@ -929,39 +973,66 @@ function showWeek(idx) {
 
 // ─── GFG TRACKER ───────────────────────────────────────────────────────────
 
-function calcTopicPct(t, s) {
-  const total = t.vt + t.pt;
-  if (!total) return 0;
-  const done = (s.vc||0) + (s.pc||0);
-  return Math.round((done / total) * 100);
+function calcTopicStats(t, s) {
+  const done = (s && s.done) || {};
+  let doneCount = 0, doneH = 0, totalH = 0;
+  t.v.forEach((vid, i) => {
+    totalH += vid.s / 3600;
+    if (done[i + 1]) { doneCount++; doneH += vid.s / 3600; }
+  });
+  const total = t.v.length;
+  return {total, done: doneCount, pct: total ? Math.round(doneCount / total * 100) : 0, totalH, doneH};
 }
 
 function calcModuleStats(m) {
-  let total = 0, done = 0;
+  let total = 0, done = 0, totalH = 0, doneH = 0;
   m.topics.forEach(t => {
-    const s = STATE.gfg.topics[t.id] || {vc:0,pc:0};
-    total += t.vt + t.pt;
-    done += (s.vc||0) + (s.pc||0);
+    const ts = calcTopicStats(t, STATE.gfg.topics[t.id]);
+    total += ts.total; done += ts.done; totalH += ts.totalH; doneH += ts.doneH;
   });
-  return {total, done, pct: total ? Math.round(done/total*100) : 0};
+  return {total, done, pct: total ? Math.round(done / total * 100) : 0, totalH, doneH};
+}
+
+// Which module/topic accordions are open — UI-only, not persisted.
+const GFG_OPEN = {modules: new Set(), topics: new Set()};
+
+function toggleModule(id) {
+  if (GFG_OPEN.modules.has(id)) GFG_OPEN.modules.delete(id); else GFG_OPEN.modules.add(id);
+  renderGFG();
+}
+
+function toggleTopic(id) {
+  if (GFG_OPEN.topics.has(id)) GFG_OPEN.topics.delete(id); else GFG_OPEN.topics.add(id);
+  renderGFG();
+}
+
+function toggleVideo(topicId, idx, ev) {
+  if (ev) ev.stopPropagation();
+  const s = STATE.gfg.topics[topicId] = STATE.gfg.topics[topicId] || {done: {}};
+  if (s.done[idx]) delete s.done[idx]; else s.done[idx] = true;
+  saveState(STATE);
+  invalidatePlan();
+  renderGFG();
+  if (document.getElementById('panel-today')) renderToday();
+  if (SHOWN_WEEK !== null && document.getElementById('week-detail')) showWeek(SHOWN_WEEK);
 }
 
 function renderGFG() {
   const el = document.getElementById('panel-gfg');
   const mStats = GFG_MODULES.map(m => calcModuleStats(m));
-  const overall = mStats.reduce((a,s) => ({total:a.total+s.total, done:a.done+s.done}), {total:0,done:0});
-  const overallPct = overall.total ? Math.round(overall.done/overall.total*100) : 0;
+  const overall = mStats.reduce((a, s) => ({total: a.total + s.total, done: a.done + s.done, totalH: a.totalH + s.totalH, doneH: a.doneH + s.doneH}), {total: 0, done: 0, totalH: 0, doneH: 0});
+  const overallPct = overall.total ? Math.round(overall.done / overall.total * 100) : 0;
 
-  const statCards = [...mStats.map((s,i) => `
+  const statCards = [...mStats.map((s, i) => `
     <div class="stat-card">
       <div class="stat-num">${s.pct}%</div>
-      <div class="stat-sub">${s.done}/${s.total} done</div>
+      <div class="stat-sub">${s.done}/${s.total} videos · ${fmtH(s.doneH)}/${fmtH(s.totalH)}</div>
       <div class="stat-lbl">${GFG_MODULES[i].name}</div>
       <div class="prog-bg" style="margin-top:6px"><div class="prog-fill" style="width:${s.pct}%;background:${GFG_MODULES[i].color}"></div></div>
     </div>`),
     `<div class="stat-card">
       <div class="stat-num">${overallPct}%</div>
-      <div class="stat-sub">${overall.done}/${overall.total} done</div>
+      <div class="stat-sub">${overall.done}/${overall.total} videos · ${fmtH(overall.doneH)}/${fmtH(overall.totalH)}</div>
       <div class="stat-lbl">Overall GFG</div>
       <div class="prog-bg" style="margin-top:6px"><div class="prog-fill" style="width:${overallPct}%;background:var(--accent)"></div></div>
     </div>`
@@ -971,48 +1042,45 @@ function renderGFG() {
 
   GFG_MODULES.forEach((m, mi) => {
     const ms = mStats[mi];
+    const mOpen = GFG_OPEN.modules.has(m.id);
     html += `<div class="module-section">
-      <div class="module-header">
+      <div class="module-header" onclick="toggleModule('${m.id}')" style="cursor:pointer">
         <div>
-          <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--dim);letter-spacing:0.08em;margin-bottom:2px">MODULE ${mi+1}</div>
-          <div class="module-name">${m.name}</div>
+          <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--dim);letter-spacing:0.08em;margin-bottom:2px">MODULE ${mi + 1}</div>
+          <div class="module-name"><span class="gfg-chevron${mOpen ? ' open' : ''}">▸</span>${m.name}</div>
         </div>
         <div style="text-align:right">
           <div class="module-pct">${ms.pct}%</div>
-          <div style="font-size:10px;color:var(--dim);font-family:'JetBrains Mono',monospace">${ms.done}/${ms.total}</div>
+          <div style="font-size:10px;color:var(--dim);font-family:'JetBrains Mono',monospace">${ms.done}/${ms.total} · ${fmtH(ms.doneH)}/${fmtH(ms.totalH)}</div>
         </div>
       </div>
       <div class="module-prog"><div class="fill" id="mbar-${m.id}" style="width:${ms.pct}%;background:${m.color}"></div></div>`;
 
-    m.topics.forEach((t, ti) => {
-      const s = STATE.gfg.topics[t.id] || {vc:0, pc:0};
-      const pct = calcTopicPct(t, s);
-      const cls = pct >= 95 ? 't-done' : (pct > 0 ? 't-prog' : '');
-      html += `<div class="topic-row ${cls}" id="tr-${t.id}">
-        <div class="topic-num">${String(ti+1).padStart(2,'0')}</div>
+    if (mOpen) m.topics.forEach((t, ti) => {
+      const ts = calcTopicStats(t, STATE.gfg.topics[t.id]);
+      const cls = ts.pct >= 100 ? 't-done' : (ts.pct > 0 ? 't-prog' : '');
+      const tOpen = GFG_OPEN.topics.has(t.id);
+      html += `<div class="topic-row ${cls}" onclick="toggleTopic('${t.id}')" style="cursor:pointer">
+        <div class="topic-num"><span class="gfg-chevron${tOpen ? ' open' : ''}">▸</span>${String(ti + 1).padStart(2, '0')}</div>
         <div class="topic-info">
           <div class="topic-name">${t.name}</div>
-          <div class="topic-counts">${t.vt}v · ${t.pt}p</div>
+          <div class="topic-counts">${ts.total} videos · ${fmtH(ts.totalH)}</div>
         </div>
-        <div class="topic-inputs">
-          <div class="inp-grp">
-            V
-            <input type="number" min="0" max="${t.vt}" step="1" value="${s.vc||0}"
-              onchange="updateTopic('${t.id}','vc',this.value,${t.vt},${t.pt})"
-              oninput="clampInput(this,${t.vt})">
-            <span style="color:var(--dim)">/${t.vt}</span>
-          </div>
-          <div class="inp-grp">
-            P
-            <input type="number" min="0" max="${t.pt}" step="1" value="${s.pc||0}"
-              onchange="updateTopic('${t.id}','pc',this.value,${t.vt},${t.pt})"
-              oninput="clampInput(this,${t.pt})"${t.pt===0?' disabled':''}>
-            <span style="color:var(--dim)">/${t.pt}</span>
-          </div>
-        </div>
-        <div class="topic-pct" id="pct-${t.id}">${pct}%</div>
-        <div class="topic-mini-bar"><div class="fill" id="bar-${t.id}" style="width:${pct}%"></div></div>
+        <div class="topic-pct">${ts.pct}%</div>
+        <div class="topic-mini-bar"><div class="fill" style="width:${ts.pct}%"></div></div>
       </div>`;
+
+      if (tOpen) {
+        const done = (STATE.gfg.topics[t.id] || {}).done || {};
+        html += `<div class="video-list">` + t.v.map((vid, vi) => {
+          const idx = vi + 1, isDone = !!done[idx];
+          return `<div class="video-row${isDone ? ' done' : ''}" onclick="toggleVideo('${t.id}',${idx},event)">
+            <div class="video-box">${isDone ? '✓' : ''}</div>
+            <div class="video-name">${vid.n}</div>
+            <div class="video-dur">${fmtH(vid.s / 3600)}</div>
+          </div>`;
+        }).join('') + `</div>`;
+      }
     });
     html += `</div>`;
   });
@@ -1022,50 +1090,6 @@ function renderGFG() {
   </div>`;
 
   el.innerHTML = html;
-}
-
-function clampInput(inp, max) {
-  let v = parseInt(inp.value) || 0;
-  if (v < 0) v = 0;
-  if (v > max) v = max;
-  inp.value = v;
-}
-
-function updateTopic(id, field, val, vt, pt) {
-  let v = parseInt(val) || 0;
-  const max = field === 'vc' ? vt : pt;
-  v = Math.min(Math.max(v, 0), max);
-  if (!STATE.gfg.topics[id]) STATE.gfg.topics[id] = {vc:0, pc:0};
-  STATE.gfg.topics[id][field] = v;
-  saveState(STATE);
-
-  const t = GFG_MODULES.flatMap(m => m.topics).find(x => x.id === id);
-  const s = STATE.gfg.topics[id];
-  const pct = calcTopicPct(t, s);
-
-  // update row styling
-  const row = document.getElementById('tr-'+id);
-  if (row) {
-    row.classList.remove('t-done','t-prog');
-    if (pct >= 95) row.classList.add('t-done');
-    else if (pct > 0) row.classList.add('t-prog');
-  }
-  const pctEl = document.getElementById('pct-'+id);
-  if (pctEl) pctEl.textContent = pct+'%';
-  const barEl = document.getElementById('bar-'+id);
-  if (barEl) barEl.style.width = pct+'%';
-
-  // update module bar + stat cards
-  GFG_MODULES.forEach((m, mi) => {
-    if (!m.topics.find(x => x.id === id)) return;
-    const ms = calcModuleStats(m);
-    const mb = document.getElementById('mbar-'+m.id);
-    if (mb) mb.style.width = ms.pct+'%';
-  });
-
-  invalidatePlan();
-  if (document.getElementById('panel-today')) renderToday();
-  if (SHOWN_WEEK !== null && document.getElementById('week-detail')) showWeek(SHOWN_WEEK);
 }
 
 // Clears every counter, track state, daily check and log. saveState pushes the
@@ -1206,7 +1230,7 @@ function renderRules() {
   document.getElementById('panel-rules').innerHTML = `
     <div class="rule-block">
       <div class="rule-title">DAILY 4-SLOT STRUCTURE (8 hours every day)</div>
-      <div class="rule-item"><span class="rule-bullet">A</span><div><strong style="color:var(--dsa)">DSA · 2h</strong> — GFG Complete Interview Prep (videos + problems). Daily, no exceptions.</div></div>
+      <div class="rule-item"><span class="rule-bullet">A</span><div><strong style="color:var(--dsa)">DSA · 2h</strong> — GFG Complete Interview Prep videos, real durations, auto-paced to ~1.5h/day; the rest of the slot is your own problem practice. Daily, no exceptions.</div></div>
       <div class="rule-item"><span class="rule-bullet">B</span><div><strong style="color:var(--java)">JAVA ↔ SPRING · 2.5h</strong> — alternating days. Java on even day numbers, Spring on odd.</div></div>
       <div class="rule-item"><span class="rule-bullet">C</span><div><strong style="color:var(--sql)">ROTATING · 1.5h</strong> — SQL (Mon/Wed) · Hands-on (Tue/Thu) · System Design (Fri) · Cloud/Revision (Sat/Sun)</div></div>
       <div class="rule-item"><span class="rule-bullet">D</span><div><strong style="color:var(--cloud)">AWS ↔ SYSTEM DESIGN · 2h</strong> — alternating days. AWS on even day numbers, System Design on odd.</div></div>
@@ -1240,7 +1264,7 @@ function renderRules() {
     <div class="rule-block">
       <div class="rule-title">HARD RULES</div>
       <div class="rule-item"><span class="rule-bullet">1</span><div>Never skip DSA. Slot A is non-negotiable every single day, including weekends.</div></div>
-      <div class="rule-item"><span class="rule-bullet">2</span><div>All 56 GFG topics start at 0%. Only videos + problems counted — no articles, MCQs, or contests.</div></div>
+      <div class="rule-item"><span class="rule-bullet">2</span><div>All 56 GFG topics start at 0%. Only real GFG videos are tracked — problem practice is on you, no articles, MCQs, or contests.</div></div>
       <div class="rule-item"><span class="rule-bullet">3</span><div>Take notes after every block. Write in your Notion/notebook within 10 minutes of finishing.</div></div>
       <div class="rule-item"><span class="rule-bullet">4</span><div>Weekly self-quiz every Sunday. 10–15 Q&A on the week's content, no notes.</div></div>
       <div class="rule-item"><span class="rule-bullet">5</span><div>1.5× rule — if a topic takes longer, cut Slot C instead of Slot A, B or D.</div></div>
@@ -1324,7 +1348,7 @@ async function loadFromFirestore(uid) {
       if (!remote.gfg) remote.gfg = getDefaultState().gfg;
       if (!remote.tracks) remote.tracks = getDefaultTracks();
       else Object.keys(getDefaultTracks()).forEach(k => { if (!remote.tracks[k]) remote.tracks[k] = {}; });
-      STATE = remote;
+      STATE = migrateGfg(remote);
       invalidatePlan();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(STATE));
       // re-render active panel

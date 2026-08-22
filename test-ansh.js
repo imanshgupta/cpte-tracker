@@ -47,9 +47,9 @@ const code = fs.readFileSync('ansh.js', 'utf8') + `
   setToday(y,m,d){ global.__TODAY=[y,m-1,d]; invalidatePlan(); },
   g:{ WEEKS, STREAMS, TRACK_DEFS, GFG_MODULES, SLOT_H, HANDOVER, PLAN_START, PLAN_END },
   f:{ getPlan, invalidatePlan, assignmentFor, streamForSlot, slotMeta, toggleSlot, setTrackTopic,
-      updateTopic, renderToday, renderWeeks, showWeek, renderGFG, renderTrackTab, renderBudget,
+      toggleModule, toggleTopic, toggleVideo, renderToday, renderWeeks, showWeek, renderGFG, renderTrackTab, renderBudget,
       renderRules, renderPace, renderDayContent, showTab, findDay, daysBetween, todayStr,
-      isEvenDay, streamUnits, unitDone, renderWeekStrip, fmtH, clampInput, resetAll, loadState, getDefaultState },
+      isEvenDay, streamUnits, unitDone, renderWeekStrip, fmtH, resetAll, loadState, getDefaultState },
   get state(){ return STATE; },
 };`;
 eval(code);
@@ -75,6 +75,7 @@ const markTrackGroup = (track, groupId) => {
   const grp = g.TRACK_DEFS[track].groups.find(x => x.id === groupId);
   grp.topics.forEach(tp => f.setTrackTopic(track, tp.id, 'done', groupId, true));
 };
+const markGfgVideos = (topicId, n) => { for (let i = 1; i <= n; i++) f.toggleVideo(topicId, i); };
 
 // ══════════════════════════════════════════════════════════════════════════
 S('1. Pull-forward — finishing fast advances the flow');
@@ -116,13 +117,13 @@ t('AWS pulls up independently of Java', () => {
   ok(after < before, 'S3 should pull up');
   console.log('        AWS S3 ' + before + ' → ' + after);
 });
-t('DSA pulls up when GFG counters are raised', () => {
+t('DSA pulls up when GFG videos are marked done', () => {
   R();
-  const before = sessionsFor('dsa').find(s => s.units.some(u => u.name === 'Arrays')).date;
-  f.updateTopic('basics-dsa-intro','vc',2,2,0);
-  f.updateTopic('basics-analysis','vc',15,15,0);
+  const before = sessionsFor('dsa').find(s => s.units.some(u => u.topic === 'basics-arrays')).date;
+  markGfgVideos('basics-dsa-intro', 2);
+  markGfgVideos('basics-analysis', 15);
   f.invalidatePlan();
-  const after = sessionsFor('dsa').find(s => s.units.some(u => u.name === 'Arrays')).date;
+  const after = sessionsFor('dsa').find(s => s.units.some(u => u.topic === 'basics-arrays')).date;
   ok(after <= before, 'Arrays should pull up');
   console.log('        DSA Arrays ' + before + ' → ' + after);
 });
@@ -178,11 +179,13 @@ t('Java empty → Spring takes all 188 Slot B sessions', () => {
   const m = f.slotMeta(f.findDay('2026-08-24').day, 'b');
   ok(m.label.indexOf('Spring') === 0 && m.label.indexOf('↺ from Java') > 0, 'label marks handover: ' + m.label);
 });
-t('AWS empty → System Design takes Slot D too', () => {
+t('AWS empty → System Design takes Slot D too, plus DSA\'s spare Slot A capacity', () => {
   R();
   g.TRACK_DEFS.cloud.groups.forEach(grp => { if (grp.id.indexOf('cl-saa-') === 0) markTrackGroup('cloud', grp.id); });
   f.invalidatePlan();
-  eq(f.getPlan().pace.sd.sessions, 220, 'SD gets its 126 plus 94 AWS');
+  // 126 baseline + 94 from AWS's Slot D + 124 Slot A sessions DSA doesn't
+  // need at ~1.5h/day (188 total minus its own ~64), first in DSA's chain.
+  eq(f.getPlan().pace.sd.sessions, 344, 'SD gets its 126 + 94 AWS + 124 spare DSA slots');
   const m = f.slotMeta(f.findDay('2026-08-24').day, 'd');
   ok(m.label.indexOf('System Design') === 0 && m.label.indexOf('↺') > 0, 'label: ' + m.label);
 });
@@ -199,7 +202,7 @@ t('both pipes dry → falls through the chain, no idle session', () => {
 t('everything done → slot reports a free session rather than erroring', () => {
   ['java','spring','sd','sql'].forEach(tr => g.TRACK_DEFS[tr].groups.forEach(grp => markTrackGroup(tr, grp.id)));
   g.TRACK_DEFS.cloud.groups.forEach(grp => markTrackGroup('cloud', grp.id));
-  g.GFG_MODULES.forEach(m => m.topics.forEach(tp => f.updateTopic(tp.id, 'vc', tp.vt, tp.vt, tp.pt) || f.updateTopic(tp.id, 'pc', tp.pt, tp.vt, tp.pt)));
+  g.GFG_MODULES.forEach(m => m.topics.forEach(tp => markGfgVideos(tp.id, tp.v.length)));
   f.invalidatePlan();
   const m = f.slotMeta(f.findDay('2026-08-24').day, 'a');
   ok(m.content.indexOf('Backlog clear') >= 0, 'expected free-session text, got: ' + m.content.slice(0, 60));
@@ -227,18 +230,18 @@ t('unticking restores the lessons to the queue', () => {
   ok(!global.__api.state.dailyChecks['2026-08-24'].d, 'unchecked');
   ok(!global.__api.state.dailyLog['2026-08-24'].d, 'log cleared');
 });
-t('ticking Slot A moves GFG counters', () => {
+t('ticking Slot A marks its videos done', () => {
   R();
   const units = f.assignmentFor('2026-08-24', 'a').units;
   f.toggleSlot('2026-08-24', 'a');
   const topics = [...new Set(units.map(u => u.topic))];
   topics.forEach(tp => { const s = global.__api.state.gfg.topics[tp];
-    ok((s.vc || 0) + (s.pc || 0) > 0, tp + ' counters should have moved'); });
+    ok(s && s.done && Object.keys(s.done).length > 0, tp + ' videos should have moved'); });
 });
-t('unticking Slot A rolls GFG counters back', () => {
+t('unticking Slot A rolls the video completions back', () => {
   f.toggleSlot('2026-08-24', 'a');
-  const tot = Object.values(global.__api.state.gfg.topics).reduce((a, s) => a + (s.vc||0) + (s.pc||0), 0);
-  eq(tot, 0, 'all counters back to zero');
+  const tot = Object.values(global.__api.state.gfg.topics).reduce((a, s) => a + Object.keys((s && s.done) || {}).length, 0);
+  eq(tot, 0, 'all videos back to undone');
 });
 t('marking on the track page shifts the next session (the "I already know this" path)', () => {
   R();
@@ -292,7 +295,7 @@ t('every scheduled unit is unique across the whole plan', () => {
   const bd = f.getPlan().byDate;
   Object.keys(bd).forEach(d => ['a','b','c','d'].forEach(sl => {
     const a = bd[d][sl]; if (!a) return;
-    a.units.forEach(u => { const k = u.kind === 'gfg' ? u.topic+':'+u.type+':'+u.idx : u.id;
+    a.units.forEach(u => { const k = u.kind === 'gfg' ? u.topic+':'+u.idx : u.id;
       if (seen[k]) dupes.push(k); seen[k] = 1; });
   }));
   eq(dupes.length, 0, 'duplicates: ' + dupes.slice(0, 3));
@@ -381,26 +384,42 @@ t('ticked slots show a check in the week view', () => {
 });
 
 S('9. UI — GFG tab');
-t('renders all 56 topics with inputs', () => {
+t('renders 3 module cards, collapsed by default', () => {
   R(); f.renderGFG();
   const h = getEl('panel-gfg').innerHTML;
-  eq((h.match(/class="topic-row/g) || []).length, 56, '56 topic rows');
+  eq((h.match(/class="module-section"/g) || []).length, 3, '3 modules');
+  eq((h.match(/class="topic-row/g) || []).length, 0, 'topics collapsed by default');
+  eq((h.match(/class="video-row/g) || []).length, 0, 'videos collapsed by default');
   ok(h.indexOf('Reset ALL progress') > 0, 'reset button is honest about its scope');
 });
-t('updateTopic clamps out-of-range input', () => {
-  f.updateTopic('basics-arrays', 'vc', 999, 12, 15);
-  eq(global.__api.state.gfg.topics['basics-arrays'].vc, 12, 'clamped to max');
-  f.updateTopic('basics-arrays', 'vc', -5, 12, 15);
-  eq(global.__api.state.gfg.topics['basics-arrays'].vc, 0, 'clamped to min');
+t('toggleModule expands a module to show its 16 topics', () => {
+  f.toggleModule('basics');
+  const h = getEl('panel-gfg').innerHTML;
+  eq((h.match(/class="topic-row/g) || []).length, 16, 'basics has 16 topics');
+  f.toggleModule('basics');
 });
-t('clampInput mutates the element value', () => {
-  const inp = { value: '99' }; f.clampInput(inp, 12); eq(inp.value, 12);
-  inp.value = '-3'; f.clampInput(inp, 12); eq(inp.value, 0);
+t('toggleTopic expands a topic to show every real video title', () => {
+  f.toggleModule('basics');
+  f.toggleTopic('basics-dsa-intro');
+  const h = getEl('panel-gfg').innerHTML;
+  eq((h.match(/class="video-row/g) || []).length, 2, 'basics-dsa-intro has 2 videos');
+  ok(h.indexOf('Why is DSA Important') > 0, 'real video title shown, not a generic count');
+  f.toggleTopic('basics-dsa-intro');
+  f.toggleModule('basics');
 });
-t('editing a counter reshuffles the plan immediately', () => {
+t('toggleVideo marks a single video done and updates the topic %', () => {
+  R();
+  f.toggleModule('basics'); f.toggleTopic('basics-dsa-intro');
+  f.toggleVideo('basics-dsa-intro', 1);
+  ok(global.__api.state.gfg.topics['basics-dsa-intro'].done[1] === true, 'video 1 marked done');
+  ok(getEl('panel-gfg').innerHTML.indexOf('50%') > 0, 'topic pct reflects 1/2 done');
+  f.toggleVideo('basics-dsa-intro', 1);
+  f.toggleTopic('basics-dsa-intro'); f.toggleModule('basics');
+});
+t('marking every video in a topic reshuffles the plan immediately', () => {
   R();
   const before = f.assignmentFor('2026-08-24', 'a').units.length;
-  f.updateTopic('basics-dsa-intro', 'vc', 2, 2, 0);
+  markGfgVideos('basics-dsa-intro', 2);
   const after = f.assignmentFor('2026-08-24', 'a').units;
   ok(!after.some(u => u.topic === 'basics-dsa-intro'), 'completed topic no longer scheduled');
   ok(before > 0 && after.length > 0, 'still scheduled');
@@ -493,18 +512,21 @@ t('state survives a save/load round trip', () => {
   f.toggleSlot('2026-08-24', 'd');
   const raw = localStorage.getItem('java-prep-tracker-v2');
   const parsed = JSON.parse(raw);
-  eq(parsed.version, '3.0', 'version bumped');
+  eq(parsed.version, '4.0', 'version bumped');
   ok(parsed.dailyLog['2026-08-24'].d.units.length === 4, 'log persisted');
   ok(Object.keys(parsed.tracks.cloud).length === 4, 'track state persisted');
 });
-t('a legacy v2 state without dailyLog is migrated by loadState', () => {
+t('a legacy v2 state without dailyLog is migrated by loadState, and stale Slot A data is dropped', () => {
   localStorage.setItem('java-prep-tracker-v2', JSON.stringify(
-    {version:'2.0', gfg:{topics:{}}, dailyChecks:{'2026-08-24':{a:true}}, tracks:{}}));
+    {version:'2.0', gfg:{topics:{'basics-arrays':{vc:5,pc:3}}}, dailyChecks:{'2026-08-24':{a:true,b:true}}, tracks:{}}));
   const loaded = f.loadState();
   ok(loaded.dailyLog && typeof loaded.dailyLog === 'object', 'dailyLog backfilled');
-  ok(loaded.gfg && loaded.gfg.topics, 'gfg preserved');
-  eq(loaded.dailyChecks['2026-08-24'].a, true, 'existing checks preserved');
+  ok(loaded.gfg && loaded.gfg.topics, 'gfg present');
+  eq(Object.keys(loaded.gfg.topics['basics-arrays'].done || {}).length, 0, 'old vc/pc counters wiped for a fresh video-level start');
+  eq(loaded.dailyChecks['2026-08-24'].a, undefined, 'stale Slot A check dropped on migration');
+  eq(loaded.dailyChecks['2026-08-24'].b, true, 'other slots untouched');
   ok(loaded.tracks && loaded.tracks.java, 'tracks backfilled');
+  eq(loaded.version, '4.0', 'version bumped to 4.0');
 });
 t('a corrupt state falls back to defaults instead of throwing', () => {
   localStorage.setItem('java-prep-tracker-v2', '{not valid json');
@@ -525,8 +547,8 @@ t('resetAll clears every part of the state, not just GFG', () => {
   eq(Object.keys(st.dailyLog).length, 0, 'daily log cleared');
   eq(Object.keys(st.tracks.java).length, 0, 'java track cleared');
   eq(Object.keys(st.tracks.cloud).length, 0, 'cloud track cleared');
-  const gfgTotal = Object.values(st.gfg.topics).reduce((a, x) => a + (x.vc||0) + (x.pc||0), 0);
-  eq(gfgTotal, 0, 'gfg counters cleared');
+  const gfgTotal = Object.values(st.gfg.topics).reduce((a, x) => a + Object.keys((x && x.done) || {}).length, 0);
+  eq(gfgTotal, 0, 'gfg video completions cleared');
 });
 t('resetAll writes the cleared state back to storage (so a sync cannot resurrect it)', () => {
   const raw = JSON.parse(localStorage.getItem('java-prep-tracker-v2'));
@@ -540,10 +562,10 @@ t('scheduled units follow curriculum order exactly, for every stream', () => {
   R();
   Object.keys(g.STREAMS).forEach(st => {
     const order = {}; f.streamUnits(st).forEach((u, i) => {
-      order[u.kind === 'gfg' ? u.topic+':'+u.type+':'+u.idx : u.id] = i; });
+      order[u.kind === 'gfg' ? u.topic+':'+u.idx : u.id] = i; });
     let prev = -1;
     sessionsFor(st).forEach(s => s.units.forEach(u => {
-      const k = u.kind === 'gfg' ? u.topic+':'+u.type+':'+u.idx : u.id;
+      const k = u.kind === 'gfg' ? u.topic+':'+u.idx : u.id;
       ok(order[k] > prev, st + ' out of order at ' + k + ' (' + order[k] + ' after ' + prev + ')');
       prev = order[k];
     }));
