@@ -2893,3 +2893,30 @@ function setTrackTopic(trackId, topicId, newState, groupId, force) {
 // TRACK_DEFS is declared below the render code, so boot last — the scheduler
 // reads the curriculum lists on its very first render.
 init();
+
+// ── PWA install prompt ──
+// Only fires when the browser itself has verified the page is truly
+// installable (valid manifest, correctly-sized icons, an active service
+// worker with a fetch handler) — this is what separates a real "Install
+// app" from the fallback "Add to Home Screen" bookmark behavior. Safari
+// doesn't support this event at all; there, Add to Home Screen (with the
+// apple-mobile-web-app-capable meta tag already set) is the only
+// installation path iOS offers, so no button is shown or needed there.
+var deferredInstallPrompt;
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  var btn = document.createElement('button');
+  btn.textContent = 'Install App';
+  btn.style.cssText = 'position:fixed;bottom:20px;right:20px;padding:10px 18px;' +
+    'background:var(--accent);color:var(--bg);border:none;border-radius:10px;' +
+    'font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:700;' +
+    'cursor:pointer;z-index:9999;box-shadow:0 4px 14px rgba(0,0,0,0.4)';
+  document.body.appendChild(btn);
+  btn.addEventListener('click', async function() {
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    btn.remove();
+  });
+});
