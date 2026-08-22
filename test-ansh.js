@@ -45,11 +45,11 @@ const code = fs.readFileSync('ansh.js', 'utf8') + `
 ;global.__api = {
   reset(){ localStorage.removeItem(STORAGE_KEY); STATE = loadState(); invalidatePlan(); },
   setToday(y,m,d){ global.__TODAY=[y,m-1,d]; invalidatePlan(); },
-  g:{ WEEKS, STREAMS, TRACK_DEFS, GFG_MODULES, SLOT_H, HANDOVER, PLAN_START, PLAN_END },
+  g:{ WEEKS, STREAMS, TRACK_DEFS, GFG_MODULES, SLOT_H, HANDOVER, PLAN_START, PLAN_END, GFG_DAILY_VIDEO_H, SQL_DAILY_H },
   f:{ getPlan, invalidatePlan, assignmentFor, streamForSlot, slotMeta, toggleSlot, setTrackTopic,
       toggleModule, toggleTopic, toggleVideo, renderToday, renderWeeks, showWeek, renderGFG, renderTrackTab, renderBudget,
       renderRules, renderPace, renderDayContent, showTab, findDay, daysBetween, todayStr,
-      isEvenDay, streamUnits, unitDone, renderWeekStrip, fmtH, resetAll, loadState, getDefaultState },
+      isEvenDay, streamUnits, unitDone, renderWeekStrip, fmtH, resetAll, loadState, getDefaultState, courseUrlFor },
   get state(){ return STATE; },
 };`;
 eval(code);
@@ -184,8 +184,9 @@ t('AWS empty → System Design takes Slot D too, plus DSA\'s spare Slot A capaci
   g.TRACK_DEFS.cloud.groups.forEach(grp => { if (grp.id.indexOf('cl-saa-') === 0) markTrackGroup('cloud', grp.id); });
   f.invalidatePlan();
   // 126 baseline + 94 from AWS's Slot D + 124 Slot A sessions DSA doesn't
-  // need at ~1.5h/day (188 total minus its own ~64), first in DSA's chain.
-  eq(f.getPlan().pace.sd.sessions, 344, 'SD gets its 126 + 94 AWS + 124 spare DSA slots');
+  // need at ~1.5h/day (188 total minus its own ~64) + 12 Slot C sessions
+  // SQL doesn't need at 1h/day, both first in their own handover chains.
+  eq(f.getPlan().pace.sd.sessions, 356, 'SD gets its 126 + 94 AWS + 124 spare DSA + 12 spare SQL slots');
   const m = f.slotMeta(f.findDay('2026-08-24').day, 'd');
   ok(m.label.indexOf('System Design') === 0 && m.label.indexOf('↺') > 0, 'label: ' + m.label);
 });
@@ -288,6 +289,31 @@ t('session counts are 188 / 94 / 94 / 94 / 94', () => {
 });
 t('slot hours total 8h/day', () => {
   eq(g.SLOT_H.a + g.SLOT_H.b + g.SLOT_H.c + g.SLOT_H.d, 8);
+});
+t('day 1 DSA content is packed to ~1.5h, not thin-spread over all 188 sessions', () => {
+  R();
+  const day1 = sessionsFor('dsa')[0];
+  const h = day1.units.reduce((a, u) => a + u.w, 0);
+  ok(h > 1.2 && h <= g.SLOT_H.a, 'day 1 DSA load should be close to the 1.5h/day budget, got ' + h.toFixed(2) + 'h');
+});
+t('day 1 SQL content is packed to ~1h, not thin-spread over every SQL day', () => {
+  R();
+  const day1 = sessionsFor('sql')[0];
+  const h = day1.units.reduce((a, u) => a + u.w, 0);
+  ok(h > 0.6 && h <= g.SLOT_H.c, 'day 1 SQL load should be close to the 1h/day budget, got ' + h.toFixed(2) + 'h');
+});
+t('DSA frees up spare Slot A sessions once its own budget is covered', () => {
+  const totalASlots = 188;
+  const dsaHoursFull = f.streamUnits('dsa').reduce((a, u) => a + u.w, 0);
+  const dsaSessionsNeeded = Math.ceil(dsaHoursFull / g.GFG_DAILY_VIDEO_H);
+  ok(dsaSessionsNeeded < totalASlots, 'DSA should need fewer than all 188 Slot A sessions: needs ' + dsaSessionsNeeded);
+});
+t('SQL frees up spare Slot C sessions once its own budget is covered', () => {
+  let sqlSlots = 0;
+  g.WEEKS.forEach(w => { if (w.isBuffer) return; w.days.forEach(d => { if (f.streamForSlot(d, 'c') === 'sql') sqlSlots++; }); });
+  const sqlHoursFull = f.streamUnits('sql').reduce((a, u) => a + u.w, 0);
+  const sqlSessionsNeeded = Math.ceil(sqlHoursFull / g.SQL_DAILY_H);
+  ok(sqlSessionsNeeded < sqlSlots, 'SQL should need fewer than all ' + sqlSlots + ' of its Slot C sessions: needs ' + sqlSessionsNeeded);
 });
 t('every scheduled unit is unique across the whole plan', () => {
   R();
@@ -434,6 +460,16 @@ S('10. UI — Track tabs');
     eq((h.match(/class="tr-row/g) || []).length, nTopics, tr + ' topic rows');
     eq((h.match(/class="track-section"/g) || []).length, g.TRACK_DEFS[tr].groups.length, tr + ' groups');
   });
+});
+t('course links: Spring and SQL topics link out, Java does not', () => {
+  R(); f.renderTrackTab('spring'); f.renderTrackTab('sql'); f.renderTrackTab('java');
+  ok(getEl('panel-spring').innerHTML.indexOf('durgasoftonline.com') > 0, 'Spring links to durgasoftonline');
+  ok(getEl('panel-sql').innerHTML.indexOf('udemy.com') > 0, 'SQL links to Udemy');
+  ok(getEl('panel-java').innerHTML.indexOf('class="topic-link"') < 0, 'Java has no course link (none given)');
+});
+t('course links: only the AWS SAA groups in Cloud link out, Docker/K8s do not', () => {
+  ok(f.courseUrlFor('cloud', 'cl-saa-fund').indexOf('cantrill.io') > 0, 'AWS SAA group links to cantrill.io');
+  eq(f.courseUrlFor('cloud', 'cl-docker'), null, 'Docker group has no course link');
 });
 t('setTrackTopic toggles done → not-started on second click', () => {
   R();

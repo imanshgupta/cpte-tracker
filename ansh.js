@@ -428,6 +428,10 @@ const SLOT_H = {a: 2, b: 2.5, c: 1.5, d: 2};
 // problems yourself (untracked). Once the video backlog is empty the slot
 // hands over at the full 2h, same as every other stream.
 const GFG_DAILY_VIDEO_H = 1.5;
+// Slot C is a 1.5h block on SQL days, but only 1h of real course video is
+// auto-scheduled — the rest is yours to practice queries. Once the course
+// backlog is empty the slot hands over at the full 1.5h, same as DSA above.
+const SQL_DAILY_H = 1;
 
 const STREAMS = {
   dsa:    {label: 'DSA · GFG',      badge: 'dsa'},
@@ -547,14 +551,22 @@ function buildPlan() {
     return null;
   }
 
-  // DSA doesn't hold every Slot A for the rest of the plan just because its
-  // backlog is nonzero — it only needs enough sessions to cover the real
-  // video runtime at ~1.5h/day. The rest of Slot A frees up to the handover
-  // chain immediately, same as if DSA had actually finished. Shrinks as
-  // videos get marked done, so streams behind DSA pull those sessions in.
-  const dsaHoursLeft = streamUnits('dsa').filter(u => !unitDone(u)).reduce((a, u) => a + u.w, 0);
-  const dsaSessionsNeeded = Math.ceil(dsaHoursLeft / GFG_DAILY_VIDEO_H);
-  let dsaSlotsSeen = 0;
+  // DSA (Slot A) and SQL (Slot C, on its designated days) don't hold every
+  // session their slot could ever offer just because their backlog is
+  // nonzero — each only needs enough sessions to cover its real content at
+  // its daily budget. The rest frees up to the handover chain immediately,
+  // same as if the stream had actually finished. Shrinks as items get
+  // marked done, so streams behind them pull those sessions in sooner.
+  const CAPPED = {
+    a: {stream: 'dsa', dailyH: GFG_DAILY_VIDEO_H},
+    c: {stream: 'sql', dailyH: SQL_DAILY_H},
+  };
+  const capState = {};
+  Object.keys(CAPPED).forEach(sl => {
+    const {stream, dailyH} = CAPPED[sl];
+    const hoursLeft = streamUnits(stream).filter(u => !unitDone(u)).reduce((a, u) => a + u.w, 0);
+    capState[sl] = {stream, dailyH, needed: Math.ceil(hoursLeft / dailyH), seen: 0};
+  });
 
   WEEKS.forEach(w => {
     if (w.isBuffer) return;
@@ -562,20 +574,23 @@ function buildPlan() {
       if (d.d < from) return;
       ['a','b','c','d'].forEach(sl => {
         if ((STATE.dailyChecks[d.d] || {})[sl]) return;   // already spent
+        const primary = streamForSlot(d, sl);
+        const cap = CAPPED[sl];
         let st;
-        if (sl === 'a') {
-          if (dsaSlotsSeen < dsaSessionsNeeded) { st = 'dsa'; dsaSlotsSeen++; }
+        if (cap && primary === cap.stream) {
+          const cs = capState[sl];
+          if (cs.seen < cs.needed) { st = cs.stream; cs.seen++; }
           else {
-            // Today's video budget is used up — hand this session down
-            // DSA's chain like any exhausted stream; if nothing else needs
-            // it either, DSA gets a bonus session rather than sitting idle.
-            st = (HANDOVER.dsa || []).find(s => remaining[s]) || (remaining.dsa ? 'dsa' : null);
+            // Today's budget for this stream is used up — hand the session
+            // down its chain like any exhausted stream; if nothing else
+            // needs it either, it gets a bonus session rather than idling.
+            st = (HANDOVER[cs.stream] || []).find(s => remaining[s]) || (remaining[cs.stream] ? cs.stream : null);
           }
         } else {
-          st = resolveStream(streamForSlot(d, sl));
+          st = resolveStream(primary);
         }
         if (!st) return;
-        const h = (sl === 'a' && st === 'dsa') ? GFG_DAILY_VIDEO_H : SLOT_H[sl];
+        const h = (cap && st === cap.stream) ? cap.dailyH : SLOT_H[sl];
         (slotsBy[st] = slotsBy[st] || []).push({date: d.d, slot: sl, h});
       });
     });
@@ -583,19 +598,24 @@ function buildPlan() {
 
   // Baseline = the whole curriculum over every session the plan ever had.
   // Comparing today's density against it is what "behind" actually means, and
-  // it works for streams measured in hours and in problem counts alike. DSA's
-  // baseline is its full video runtime rounded up to whole sessions, since
-  // that — not 193 days of Slot A — is what it was ever really sized for.
+  // it works for streams measured in hours and in problem counts alike. DSA
+  // and SQL's baselines are their full content rounded up to whole sessions
+  // at their daily budget, since that — not every Slot A/C they touch — is
+  // what they were ever really sized for.
   const baseH = {};
+  const cappedStreams = new Set(Object.values(CAPPED).map(c => c.stream));
   WEEKS.forEach(w => {
     if (w.isBuffer) return;
     w.days.forEach(d => ['a','b','c','d'].forEach(sl => {
       const st = streamForSlot(d, sl);
-      if (st && st !== 'dsa') baseH[st] = (baseH[st] || 0) + SLOT_H[sl];
+      if (st && !cappedStreams.has(st)) baseH[st] = (baseH[st] || 0) + SLOT_H[sl];
     }));
   });
-  const dsaFullH = streamUnits('dsa').reduce((a, u) => a + u.w, 0);
-  baseH.dsa = Math.ceil(dsaFullH / GFG_DAILY_VIDEO_H) * GFG_DAILY_VIDEO_H;
+  Object.keys(CAPPED).forEach(sl => {
+    const {stream, dailyH} = CAPPED[sl];
+    const fullH = streamUnits(stream).reduce((a, u) => a + u.w, 0);
+    baseH[stream] = Math.ceil(fullH / dailyH) * dailyH;
+  });
 
   Object.keys(STREAMS).forEach(st => {
     const slots = slotsBy[st] || [];
@@ -789,7 +809,7 @@ function renderUnits(streamId, a) {
   let html = '', lastG = null;
   units.forEach(u => {
     if (u.gname !== lastG) { html += `<div class="u-group">${u.gname}</div>`; lastG = u.gname; }
-    html += `<div class="u-item">${u.name}</div>`;
+    html += `<div class="u-item">${linkedName(u.name, u.track, u.group)}</div>`;
   });
   const h = units.reduce((s, u) => s + u.w, 0);
   return html + `<div class="u-meta">${units.length} item${units.length > 1 ? 's' : ''} · ~${fmtH(h)} of material</div>`;
@@ -1232,7 +1252,7 @@ function renderRules() {
       <div class="rule-title">DAILY 4-SLOT STRUCTURE (8 hours every day)</div>
       <div class="rule-item"><span class="rule-bullet">A</span><div><strong style="color:var(--dsa)">DSA · 2h</strong> — GFG Complete Interview Prep videos, real durations, auto-paced to ~1.5h/day; the rest of the slot is your own problem practice. Daily, no exceptions.</div></div>
       <div class="rule-item"><span class="rule-bullet">B</span><div><strong style="color:var(--java)">JAVA ↔ SPRING · 2.5h</strong> — alternating days. Java on even day numbers, Spring on odd.</div></div>
-      <div class="rule-item"><span class="rule-bullet">C</span><div><strong style="color:var(--sql)">ROTATING · 1.5h</strong> — SQL (Mon/Wed) · Hands-on (Tue/Thu) · System Design (Fri) · Cloud/Revision (Sat/Sun)</div></div>
+      <div class="rule-item"><span class="rule-bullet">C</span><div><strong style="color:var(--sql)">ROTATING · 1.5h</strong> — SQL (Mon/Wed) · Hands-on (Tue/Thu) · System Design (Fri) · Cloud/Revision (Sat/Sun). On SQL days, course video is auto-paced to ~1h; the rest is your own query practice.</div></div>
       <div class="rule-item"><span class="rule-bullet">D</span><div><strong style="color:var(--cloud)">AWS ↔ SYSTEM DESIGN · 2h</strong> — alternating days. AWS on even day numbers, System Design on odd.</div></div>
     </div>
     <div class="rule-block">
@@ -1690,7 +1710,7 @@ const TRACK_DEFS = {
   },
 
   spring: {
-    name:'Spring', color:'#6a994e', totalHours:141,
+    name:'Spring', color:'#6a994e', totalHours:141, courseUrl:'https://www.durgasoftonline.com/s/courses/5ee5e2c60cf258afb2078619/take',
     groups:[
       {id:'sp-all', name:'Spring Framework Lectures (L1–L200)', hours:141.005, topics:[
         {id:'sp-l1', name:'L1 · Enterprise Architecture, 1/2/3-Tier (1 of 3)', h:0.333, p:'V.High'},
@@ -1850,77 +1870,171 @@ const TRACK_DEFS = {
   },
 
   sql: {
-    name:'SQL / DB', color:'#a87fb8', totalHours:20,
+    name:'SQL / DB', color:'#a87fb8', totalHours:12.45, courseUrl:'https://www.udemy.com/course/the-ultimate-mysql-bootcamp-go-from-sql-beginner-to-expert/learn/lecture/34511736#overview',
     groups:[
-      {id:'sql-bc', name:'SQL Bootcamp · Optimised Path (Phase 1)', hours:6, topics:[
-        {id:'sql-bc-s1', name:'S1 · Basics Refresher (pgAdmin, DB overview)',                              h:0.5, p:'V.High'},
-        {id:'sql-bc-s2-1', name:'S2 · SELECT and column selection', h:0.3, p:'V.High'},
-        {id:'sql-bc-s2-2', name:'S2 · DISTINCT and COUNT', h:0.3, p:'V.High'},
-        {id:'sql-bc-s2-3', name:'S2 · WHERE and comparison operators', h:0.3, p:'V.High'},
-        {id:'sql-bc-s2-4', name:'S2 · ORDER BY and LIMIT', h:0.3, p:'V.High'},
-        {id:'sql-bc-s2-5', name:'S2 · BETWEEN, IN, LIKE / ILIKE', h:0.3, p:'V.High'},
-        {id:'sql-bc-s3-1', name:'S3 · Aggregate functions: SUM, AVG, COUNT, MIN, MAX', h:0.333, p:'V.High'},
-        {id:'sql-bc-s3-2', name:'S3 · GROUP BY', h:0.333, p:'V.High'},
-        {id:'sql-bc-s3-3', name:'S3 · HAVING', h:0.333, p:'V.High'},
-        {id:'sql-bc-s4-1', name:'S4 · INNER JOIN', h:0.3, p:'V.High'},
-        {id:'sql-bc-s4-2', name:'S4 · FULL OUTER JOIN', h:0.3, p:'V.High'},
-        {id:'sql-bc-s4-3', name:'S4 · LEFT and RIGHT JOIN', h:0.3, p:'V.High'},
-        {id:'sql-bc-s4-4', name:'S4 · UNION', h:0.3, p:'V.High'},
-        {id:'sql-bc-s4-5', name:'S4 · JOIN challenge exercises', h:0.3, p:'V.High'},
-        {id:'sql-bc-s5-1', name:'S5 · Timestamps and date functions', h:0.2, p:'V.High'},
-        {id:'sql-bc-s5-2', name:'S5 · Math functions', h:0.2, p:'V.High'},
-        {id:'sql-bc-s5-3', name:'S5 · String functions', h:0.2, p:'V.High'},
-        {id:'sql-bc-s5-4', name:'S5 · Subqueries', h:0.2, p:'V.High'},
-        {id:'sql-bc-s5-5', name:'S5 · Self-join', h:0.2, p:'V.High'},
-        {id:'sql-bc-s6-1', name:'S6 · Primary keys', h:0.167, p:'High'},
-        {id:'sql-bc-s6-2', name:'S6 · Foreign keys', h:0.167, p:'High'},
-        {id:'sql-bc-s6-3', name:'S6 · Constraints (NOT NULL, UNIQUE, CHECK)', h:0.167, p:'High'},
-        {id:'sql-bc-s7-1', name:'S7 · CASE expressions', h:0.25, p:'V.High'},
-        {id:'sql-bc-s7-2', name:'S7 · COALESCE and NULLIF', h:0.25, p:'V.High'},
-        {id:'sql-bc-s7-3', name:'S7 · CAST', h:0.25, p:'V.High'},
-        {id:'sql-bc-s7-4', name:'S7 · Views', h:0.25, p:'V.High'},
+      {id:'sql-getting-started-and-installation', name:'Getting Started & Installation', hours:0.32, topics:[
+        {id:'sql-getting-started-and-installation-1', name:'Section Introduction', h:0.0172, p:'V.High'},
+        {id:'sql-getting-started-and-installation-2', name:'What Is A Database?', h:0.1211, p:'V.High'},
+        {id:'sql-getting-started-and-installation-3', name:'SQL vs. MySQL', h:0.0972, p:'V.High'},
+        {id:'sql-getting-started-and-installation-4', name:'Installation: START HERE!', h:0.0881, p:'V.High'}
       ]},
-      {id:'sql-adv', name:'Advanced SQL Bootcamp (Phase 2)', hours:11, topics:[
-        {id:'sql-adv-s2-1', name:'S2 · Subqueries in FROM', h:0.375, p:'V.High'},
-        {id:'sql-adv-s2-2', name:'S2 · CTEs (WITH)', h:0.375, p:'V.High'},
-        {id:'sql-adv-s2-3', name:'S2 · IN / NOT IN vs EXISTS', h:0.375, p:'V.High'},
-        {id:'sql-adv-s2-4', name:'S2 · Recursive CTEs', h:0.375, p:'V.High'},
-        {id:'sql-adv-s3-1', name:'S3 · OVER and PARTITION BY', h:0.25, p:'V.High'},
-        {id:'sql-adv-s3-2', name:'S3 · Ranking: ROW_NUMBER, RANK, DENSE_RANK', h:0.25, p:'V.High'},
-        {id:'sql-adv-s3-3', name:'S3 · LAG, LEAD, FIRST_VALUE', h:0.25, p:'V.High'},
-        {id:'sql-adv-s3-4', name:'S3 · Window frames (ROWS / RANGE)', h:0.25, p:'V.High'},
-        {id:'sql-adv-s4-1', name:'S4 · Self join', h:0.167, p:'High'},
-        {id:'sql-adv-s4-2', name:'S4 · Cross join', h:0.167, p:'High'},
-        {id:'sql-adv-s4-3', name:'S4 · USING and NATURAL join', h:0.167, p:'High'},
-        {id:'sql-adv-s5-1', name:'S5 · UNION and UNION ALL', h:0.25, p:'High'},
-        {id:'sql-adv-s5-2', name:'S5 · INTERSECT and EXCEPT', h:0.25, p:'High'},
-        {id:'sql-adv-s6-1', name:'S6 · GROUPING SETS', h:0.25, p:'High'},
-        {id:'sql-adv-s6-2', name:'S6 · CUBE and ROLLUP', h:0.25, p:'High'},
-        {id:'sql-adv-s7-1', name:'S7 · Information schema', h:0.333, p:'High'},
-        {id:'sql-adv-s7-2', name:'S7 · Constraints in practice', h:0.333, p:'High'},
-        {id:'sql-adv-s7-3', name:'S7 · Foreign key behaviours (CASCADE, RESTRICT)', h:0.333, p:'High'},
-        {id:'sql-adv-s8-1', name:'S8 · BEGIN / COMMIT / ROLLBACK', h:0.333, p:'V.High'},
-        {id:'sql-adv-s8-2', name:'S8 · SAVEPOINT', h:0.333, p:'V.High'},
-        {id:'sql-adv-s8-3', name:'S8 · Isolation levels and locking', h:0.333, p:'V.High'},
-        {id:'sql-adv-s9-1', name:'S9 · Range partitioning', h:0.5, p:'High'},
-        {id:'sql-adv-s9-2', name:'S9 · List and hash partitioning', h:0.5, p:'High'},
-        {id:'sql-adv-s9-3', name:'S9 · Table inheritance', h:0.5, p:'High'},
-        {id:'sql-adv-s10-1', name:'S10 · Creating and updating views', h:0.333, p:'V.High'},
-        {id:'sql-adv-s10-2', name:'S10 · Materialized views', h:0.333, p:'V.High'},
-        {id:'sql-adv-s10-3', name:'S10 · Recursive views', h:0.333, p:'V.High'},
-        {id:'sql-adv-s11', name:'S11 · SQL Functions (User-defined, PL/pgSQL)',                           h:0.5, p:'High'},
-        {id:'sql-adv-s12', name:'S12 · Stored Procedures (creating, modifying)',                          h:0.5, p:'High'},
-        {id:'sql-adv-s13', name:'S13 · Triggers (create, trigger functions, before/after)',               h:0.5, p:'High'},
-        {id:'sql-adv-s14-1', name:'S14 · EXPLAIN ANALYZE and reading a query plan', h:0.25, p:'V.High'},
-        {id:'sql-adv-s14-2', name:'S14 · Indexes and when the planner ignores them', h:0.25, p:'V.High'},
-        {id:'sql-adv-s14-3', name:'S14 · Arrays and JSON / JSONB', h:0.25, p:'V.High'},
-        {id:'sql-adv-s14-4', name:'S14 · Extensions', h:0.25, p:'V.High'},
+      {id:'sql-creating-databases-and-tables', name:'Creating Databases & Tables', hours:0.81, topics:[
+        {id:'sql-creating-databases-and-tables-1', name:'Section Introduction', h:0.0192, p:'V.High'},
+        {id:'sql-creating-databases-and-tables-2', name:'Showing Databases', h:0.0708, p:'V.High'},
+        {id:'sql-creating-databases-and-tables-3', name:'Creating Databases', h:0.0819, p:'V.High'},
+        {id:'sql-creating-databases-and-tables-4', name:'Dropping and Using Databases', h:0.0922, p:'V.High'},
+        {id:'sql-creating-databases-and-tables-5', name:'Introducing Tables', h:0.0883, p:'V.High'},
+        {id:'sql-creating-databases-and-tables-6', name:'Data Types: The Basics', h:0.1272, p:'V.High'},
+        {id:'sql-creating-databases-and-tables-7', name:'Basic Datatypes Challenge', h:0.0431, p:'V.High'},
+        {id:'sql-creating-databases-and-tables-8', name:'Creating Tables', h:0.0825, p:'V.High'},
+        {id:'sql-creating-databases-and-tables-9', name:'How Do We Know It Worked?', h:0.0758, p:'V.High'},
+        {id:'sql-creating-databases-and-tables-10', name:'Dropping Tables', h:0.0361, p:'V.High'},
+        {id:'sql-creating-databases-and-tables-11', name:'Tables Basics Activity', h:0.0433, p:'V.High'},
+        {id:'sql-creating-databases-and-tables-12', name:'MySQL Comments', h:0.0533, p:'V.High'}
       ]},
-      {id:'sql-prep', name:'Interview Practice', hours:3, topics:[
-        {id:'sql-prep-1', name:'CTEs + Window Functions mock questions',                                   h:1,   p:'V.High'},
-        {id:'sql-prep-2', name:'EXPLAIN ANALYZE + query optimization problems',                            h:1,   p:'V.High'},
-        {id:'sql-prep-3', name:'Transactions + partitioning problems',                                     h:0.5, p:'High'},
-        {id:'sql-prep-4', name:'Final end-to-end mock (JOIN + CTE + Window Function + EXPLAIN)',           h:0.5, p:'V.High'},
+      {id:'sql-inserting-data', name:'Inserting Data', hours:0.89, topics:[
+        {id:'sql-inserting-data-1', name:'Section Introduction', h:0.0278, p:'V.High'},
+        {id:'sql-inserting-data-2', name:'INSERT: The Basics', h:0.0622, p:'V.High'},
+        {id:'sql-inserting-data-3', name:'A Quick Preview of SELECT', h:0.0289, p:'V.High'},
+        {id:'sql-inserting-data-4', name:'Multi-inserts', h:0.08, p:'V.High'},
+        {id:'sql-inserting-data-5', name:'INSERT Exercise', h:0.0908, p:'V.High'},
+        {id:'sql-inserting-data-6', name:'Working With NOT NULL', h:0.0944, p:'V.High'},
+        {id:'sql-inserting-data-7', name:'Sidenote: Quotes In MySQL', h:0.0703, p:'V.High'},
+        {id:'sql-inserting-data-8', name:'Adding DEFAULT Values', h:0.1086, p:'V.High'},
+        {id:'sql-inserting-data-9', name:'Introducing Primary Keys', h:0.0825, p:'V.High'},
+        {id:'sql-inserting-data-10', name:'Working With AUTO_INCREMENT', h:0.1203, p:'V.High'},
+        {id:'sql-inserting-data-11', name:'Create Table/ Insert Exercise', h:0.1219, p:'V.High'}
+      ]},
+      {id:'sql-crud-basics', name:'CRUD Basics', hours:0.56, topics:[
+        {id:'sql-crud-basics-1', name:'Section Introduction', h:0.025, p:'V.High'},
+        {id:'sql-crud-basics-2', name:'Introducing CRUD', h:0.0308, p:'V.High'},
+        {id:'sql-crud-basics-3', name:'Officially Introducing SELECT', h:0.0536, p:'V.High'},
+        {id:'sql-crud-basics-4', name:'The WHERE clause', h:0.0589, p:'V.High'},
+        {id:'sql-crud-basics-5', name:'Rapid Fire Exercises', h:0.0236, p:'V.High'},
+        {id:'sql-crud-basics-6', name:'Rapid Fire Exercises SOLUTION', h:0.0486, p:'V.High'},
+        {id:'sql-crud-basics-7', name:'Aliases', h:0.0369, p:'V.High'},
+        {id:'sql-crud-basics-8', name:'Using UPDATE', h:0.09, p:'V.High'},
+        {id:'sql-crud-basics-9', name:'A Quick Rule Of Thumb', h:0.0289, p:'V.High'},
+        {id:'sql-crud-basics-10', name:'UPDATE Exercise', h:0.0178, p:'V.High'},
+        {id:'sql-crud-basics-11', name:'UPDATE Exercise SOLUTION', h:0.0503, p:'V.High'},
+        {id:'sql-crud-basics-12', name:'Introducing DELETE', h:0.0436, p:'V.High'},
+        {id:'sql-crud-basics-13', name:'DELETE Exercise', h:0.0161, p:'V.High'},
+        {id:'sql-crud-basics-14', name:'DELETE Exercise SOLUTION', h:0.0375, p:'V.High'}
+      ]},
+      {id:'sql-crud-challenge', name:'CRUD Challenge', hours:0.39, topics:[
+        {id:'sql-crud-challenge-1', name:'Section Introduction', h:0.0311, p:'V.High'},
+        {id:'sql-crud-challenge-2', name:'Introducing the CRUD Challenge', h:0.0864, p:'V.High'},
+        {id:'sql-crud-challenge-3', name:'CRUD Challenge Solution: Creating', h:0.1353, p:'V.High'},
+        {id:'sql-crud-challenge-4', name:'CRUD Challenge Solution: Reading', h:0.0283, p:'V.High'},
+        {id:'sql-crud-challenge-5', name:'CRUD Challenge Solution: Updating', h:0.0567, p:'V.High'},
+        {id:'sql-crud-challenge-6', name:'CRUD Challenge Solution: Deleting', h:0.0472, p:'V.High'}
+      ]},
+      {id:'sql-string-functions', name:'String Functions', hours:1.24, topics:[
+        {id:'sql-string-functions-1', name:'Section Introduction', h:0.0344, p:'V.High'},
+        {id:'sql-string-functions-2', name:'The World Of String Functions', h:0.0311, p:'V.High'},
+        {id:'sql-string-functions-3', name:'Loading Our Books Data', h:0.0903, p:'V.High'},
+        {id:'sql-string-functions-4', name:'CONCAT', h:0.1472, p:'V.High'},
+        {id:'sql-string-functions-5', name:'SUBSTRING', h:0.1253, p:'V.High'},
+        {id:'sql-string-functions-6', name:'Combining String Functions', h:0.1136, p:'V.High'},
+        {id:'sql-string-functions-7', name:'Sidenote: SQL Formatting', h:0.0739, p:'V.High'},
+        {id:'sql-string-functions-8', name:'REPLACE', h:0.0953, p:'V.High'},
+        {id:'sql-string-functions-9', name:'REVERSE', h:0.0583, p:'V.High'},
+        {id:'sql-string-functions-10', name:'CHAR_LENGTH', h:0.0472, p:'V.High'},
+        {id:'sql-string-functions-11', name:'UPPER & LOWER', h:0.0633, p:'V.High'},
+        {id:'sql-string-functions-12', name:'Other String Functions', h:0.1056, p:'V.High'},
+        {id:'sql-string-functions-13', name:'String Functions Exercise', h:0.0619, p:'V.High'},
+        {id:'sql-string-functions-14', name:'String Functions Exerise SOLUTION', h:0.1922, p:'V.High'}
+      ]},
+      {id:'sql-refining-selections', name:'Refining Selections', hours:0.9, topics:[
+        {id:'sql-refining-selections-1', name:'Section Introduction', h:0.0097, p:'V.High'},
+        {id:'sql-refining-selections-2', name:'Adding Some New Books', h:0.0239, p:'V.High'},
+        {id:'sql-refining-selections-3', name:'DISTINCT', h:0.1033, p:'V.High'},
+        {id:'sql-refining-selections-4', name:'ORDER BY', h:0.1103, p:'V.High'},
+        {id:'sql-refining-selections-5', name:'More On ORDER BY', h:0.1053, p:'V.High'},
+        {id:'sql-refining-selections-6', name:'LIMIT', h:0.0942, p:'V.High'},
+        {id:'sql-refining-selections-7', name:'LIKE', h:0.1206, p:'V.High'},
+        {id:'sql-refining-selections-8', name:'Escaping Wildcards', h:0.0342, p:'V.High'},
+        {id:'sql-refining-selections-9', name:'Refining Selections Exercise', h:0.0514, p:'V.High'},
+        {id:'sql-refining-selections-10', name:'Refining Selections Exercise SOLUTION', h:0.2444, p:'V.High'}
+      ]},
+      {id:'sql-aggregate-functions', name:'Aggregate Functions', hours:1.09, topics:[
+        {id:'sql-aggregate-functions-1', name:'Section Introduction', h:0.0656, p:'V.High'},
+        {id:'sql-aggregate-functions-2', name:'Count Basics', h:0.1258, p:'V.High'},
+        {id:'sql-aggregate-functions-3', name:'GROUP BY', h:0.1697, p:'V.High'},
+        {id:'sql-aggregate-functions-4', name:'MIN and MAX Basics', h:0.0625, p:'V.High'},
+        {id:'sql-aggregate-functions-5', name:'Subqueries', h:0.1069, p:'V.High'},
+        {id:'sql-aggregate-functions-6', name:'Grouping By Multiple Columns', h:0.0797, p:'V.High'},
+        {id:'sql-aggregate-functions-7', name:'MIN and MAX With GROUP BY', h:0.0972, p:'V.High'},
+        {id:'sql-aggregate-functions-8', name:'SUM', h:0.0625, p:'V.High'},
+        {id:'sql-aggregate-functions-9', name:'AVG', h:0.0397, p:'V.High'},
+        {id:'sql-aggregate-functions-10', name:'Aggregate Functions Docs', h:0.0214, p:'V.High'},
+        {id:'sql-aggregate-functions-11', name:'Agg Functions Exercise', h:0.0475, p:'V.High'},
+        {id:'sql-aggregate-functions-12', name:'Agg Functions Exercise SOLUTION', h:0.2097, p:'V.High'}
+      ]},
+      {id:'sql-revisiting-data-types', name:'Revisiting Data Types', hours:1.77, topics:[
+        {id:'sql-revisiting-data-types-1', name:'Section Introduction', h:0.0322, p:'V.High'},
+        {id:'sql-revisiting-data-types-2', name:'Surveying Other Data Types', h:0.0478, p:'V.High'},
+        {id:'sql-revisiting-data-types-3', name:'CHAR vs. VARCHAR', h:0.2014, p:'V.High'},
+        {id:'sql-revisiting-data-types-4', name:'INT, TINYINT, BIGINT, etc.', h:0.0836, p:'V.High'},
+        {id:'sql-revisiting-data-types-5', name:'DECIMAL', h:0.1153, p:'V.High'},
+        {id:'sql-revisiting-data-types-6', name:'FLOAT & DOUBLE', h:0.0919, p:'V.High'},
+        {id:'sql-revisiting-data-types-7', name:'DATE and TIME', h:0.0769, p:'V.High'},
+        {id:'sql-revisiting-data-types-8', name:'Working With Dates', h:0.1275, p:'V.High'},
+        {id:'sql-revisiting-data-types-9', name:'CURDATE, CURTIME, & NOW', h:0.0708, p:'V.High'},
+        {id:'sql-revisiting-data-types-10', name:'Date Functions', h:0.1008, p:'V.High'},
+        {id:'sql-revisiting-data-types-11', name:'Time Functions', h:0.0342, p:'V.High'},
+        {id:'sql-revisiting-data-types-12', name:'Formatting Dates', h:0.1536, p:'V.High'},
+        {id:'sql-revisiting-data-types-13', name:'Date Math', h:0.1783, p:'V.High'},
+        {id:'sql-revisiting-data-types-14', name:'TIMESTAMPS', h:0.0578, p:'V.High'},
+        {id:'sql-revisiting-data-types-15', name:'DEFAULT & ON UPDATE TIMESTAMPS', h:0.1161, p:'V.High'},
+        {id:'sql-revisiting-data-types-16', name:'Data Types Exercise', h:0.06, p:'V.High'},
+        {id:'sql-revisiting-data-types-17', name:'Data Types Exercise SOLUTION', h:0.2211, p:'V.High'}
+      ]},
+      {id:'sql-comparison-and-logical-operators', name:'Comparison & Logical Operators', hours:1.36, topics:[
+        {id:'sql-comparison-and-logical-operators-1', name:'Section Introduction', h:0.0456, p:'V.High'},
+        {id:'sql-comparison-and-logical-operators-2', name:'Not Equal', h:0.0489, p:'V.High'},
+        {id:'sql-comparison-and-logical-operators-3', name:'NOT LIKE', h:0.0558, p:'V.High'},
+        {id:'sql-comparison-and-logical-operators-4', name:'Greater Than', h:0.0656, p:'V.High'},
+        {id:'sql-comparison-and-logical-operators-5', name:'Less Than Or Equal To', h:0.0492, p:'V.High'},
+        {id:'sql-comparison-and-logical-operators-6', name:'Logical AND', h:0.1481, p:'V.High'},
+        {id:'sql-comparison-and-logical-operators-7', name:'Logical OR', h:0.0939, p:'V.High'},
+        {id:'sql-comparison-and-logical-operators-8', name:'Between', h:0.0797, p:'V.High'},
+        {id:'sql-comparison-and-logical-operators-9', name:'Comparing Dates', h:0.1375, p:'V.High'},
+        {id:'sql-comparison-and-logical-operators-10', name:'The IN Operator', h:0.1411, p:'V.High'},
+        {id:'sql-comparison-and-logical-operators-11', name:'CASE', h:0.1461, p:'V.High'},
+        {id:'sql-comparison-and-logical-operators-12', name:'IS NULL', h:0.0342, p:'V.High'},
+        {id:'sql-comparison-and-logical-operators-13', name:'Exercise', h:0.0569, p:'V.High'},
+        {id:'sql-comparison-and-logical-operators-14', name:'Exercise SOLUTION', h:0.2561, p:'V.High'}
+      ]},
+      {id:'sql-constraints-and-alter-table', name:'Constraints & ALTER TABLE', hours:0.63, topics:[
+        {id:'sql-constraints-and-alter-table-1', name:'UNIQUE Constraint', h:0.0619, p:'V.High'},
+        {id:'sql-constraints-and-alter-table-2', name:'CHECK Constraints', h:0.0828, p:'V.High'},
+        {id:'sql-constraints-and-alter-table-3', name:'Named Constraints', h:0.0703, p:'V.High'},
+        {id:'sql-constraints-and-alter-table-4', name:'Multiple Column Constraints', h:0.0889, p:'V.High'},
+        {id:'sql-constraints-and-alter-table-5', name:'ALTER TABLE: Adding Columns', h:0.0939, p:'V.High'},
+        {id:'sql-constraints-and-alter-table-6', name:'ALTER TABLE: Dropping Columns', h:0.0317, p:'V.High'},
+        {id:'sql-constraints-and-alter-table-7', name:'ALTER TABLE: Renaming', h:0.0619, p:'V.High'},
+        {id:'sql-constraints-and-alter-table-8', name:'ALTER TABLE: Modifying Columns', h:0.0653, p:'V.High'},
+        {id:'sql-constraints-and-alter-table-9', name:'ALTER TABLE: Constraints', h:0.07, p:'V.High'}
+      ]},
+      {id:'sql-one-to-many-and-joins', name:'One to Many & Joins', hours:1.61, topics:[
+        {id:'sql-one-to-many-and-joins-1', name:'Section Introduction', h:0.0325, p:'V.High'},
+        {id:'sql-one-to-many-and-joins-2', name:'Data is Messy', h:0.1744, p:'V.High'},
+        {id:'sql-one-to-many-and-joins-3', name:'Relationships Basics', h:0.0767, p:'V.High'},
+        {id:'sql-one-to-many-and-joins-4', name:'One to Many Relationship', h:0.2092, p:'V.High'},
+        {id:'sql-one-to-many-and-joins-5', name:'Working with FOREIGN KEY', h:0.1853, p:'V.High'},
+        {id:'sql-one-to-many-and-joins-6', name:'Cross Joins', h:0.1331, p:'V.High'},
+        {id:'sql-one-to-many-and-joins-7', name:'Inner Joins', h:0.1478, p:'V.High'},
+        {id:'sql-one-to-many-and-joins-8', name:'Inner Joins With Group By', h:0.0814, p:'V.High'},
+        {id:'sql-one-to-many-and-joins-9', name:'Left Join', h:0.1181, p:'V.High'},
+        {id:'sql-one-to-many-and-joins-10', name:'Left Join With Group By', h:0.0597, p:'V.High'},
+        {id:'sql-one-to-many-and-joins-11', name:'Right Join', h:0.0744, p:'V.High'},
+        {id:'sql-one-to-many-and-joins-12', name:'On Delete Cascade', h:0.0933, p:'V.High'},
+        {id:'sql-one-to-many-and-joins-13', name:'Joins Exercise', h:0.0503, p:'V.High'},
+        {id:'sql-one-to-many-and-joins-14', name:'Joins Exercise SOLUTION', h:0.1783, p:'V.High'}
+      ]},
+      {id:'sql-many-to-many', name:'Many to Many', hours:0.88, topics:[
+        {id:'sql-many-to-many-1', name:'Many to Many — full section (course video)', h:0.8833, p:'V.High'}
       ]},
     ]
   },
@@ -2416,6 +2530,24 @@ const TRACK_DEFS = {
 
 // ─── TRACK TAB RENDERING ───────────────────────────────────────────────────
 
+const AWS_COURSE_URL = 'https://learn.cantrill.io/courses/1820301/lectures/41301625';
+
+// The course home/start page for a topic's source, where we have one — Spring
+// and SQL are single courses (track-wide), AWS is one course but only for the
+// SAA groups within Cloud (Docker/K8s topics aren't from that course).
+function courseUrlFor(track, groupId) {
+  const def = TRACK_DEFS[track];
+  if (def && def.courseUrl) return def.courseUrl;
+  if (track === 'cloud' && groupId && groupId.indexOf('cl-saa-') === 0) return AWS_COURSE_URL;
+  return null;
+}
+
+function linkedName(name, track, groupId) {
+  const url = courseUrlFor(track, groupId);
+  if (!url) return name;
+  return `<a class="topic-link" href="${url}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">${name}</a>`;
+}
+
 function priClass(p) {
   return {'V.High':'pri-vh', 'High':'pri-h', 'Medium':'pri-m', 'Low':'pri-l'}[p] || 'pri-m';
 }
@@ -2483,7 +2615,7 @@ function renderTrackTab(trackId) {
         return `<div class="tr-row ${cls}" id="trr-${tp.id}">
           <div class="tr-num">${String(i+1).padStart(2,'0')}</div>
           <div class="tr-info">
-            <div class="tr-name">${tp.name}</div>
+            <div class="tr-name">${linkedName(tp.name, trackId, g.id)}</div>
             <div class="tr-meta-row">
               <span class="tr-hours">${tp.h}h</span>
               <span class="tr-pri ${priClass(tp.p)}">${tp.p}</span>
