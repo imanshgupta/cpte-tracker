@@ -17,7 +17,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
   import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-  import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
   const firebaseConfig = {
     apiKey: "AIzaSyBOv9AkoHLMUUJ3AcbKFMOHAY4Jt_VLNiQ",
     authDomain: "trackerapp-a59a4.firebaseapp.com",
@@ -38,6 +38,7 @@
   window.firestoreDoc = doc;
   window.firestoreSetDoc = setDoc;
   window.firestoreGetDoc = getDoc;
+  window.firestoreOnSnapshot = onSnapshot;
   onAuthStateChanged(auth, user => {
     window.dispatchEvent(new CustomEvent('ansh-auth', { detail: { user } }));
   });

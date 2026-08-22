@@ -1,4 +1,4 @@
-const CACHE_NAME = "cpte-tracker-v22";
+const CACHE_NAME = "cpte-tracker-v23";
 const FILES_TO_CACHE = [
   "./",
   "./index.html",

@@ -1351,13 +1351,14 @@ function init() {
       CURRENT_USER = user;
       STATE = loadState();   // re-read under this account's own local cache key
       if (btn) { btn.textContent = 'Sign Out (' + (user.displayName || user.email || 'account').split(' ')[0] + ')'; btn.className = 'auth-btn signed-in'; }
-      loadFromFirestore(user.uid).then(() => {
+      listenToFirestore(user.uid).then(() => {
         renderToday();
         renderRules();
         showApp();
       });
     } else {
       CURRENT_USER = null;
+      stopListeningToFirestore();
       if (btn) { btn.textContent = 'Sign In'; btn.className = 'auth-btn'; }
       showSignInGate();
     }
@@ -1373,8 +1374,6 @@ function init() {
 // ─── FIREBASE ──────────────────────────────────────────────────────────────
 // CURRENT_USER is declared up top, near STORAGE_KEY — see the comment there.
 
-let _syncTimer = null;
-
 function handleAuth() {
   if (CURRENT_USER) {
     window.signOut(window.firebaseAuth).catch(()=>{});
@@ -1383,65 +1382,69 @@ function handleAuth() {
   }
 }
 
-// Debounced so rapid clicks don't fire a write per click, but the debounce
-// window is a real window where a closed tab loses an unsynced edit — so
-// the pending write is tracked and flushed immediately (see below) on
-// visibilitychange/pagehide, which is the only reliable "about to close"
-// signal on mobile Safari (beforeunload/unload are not).
-let _pendingSyncState = null;
-
-function doFirestoreWrite(s) {
-  const ref = window.firestoreDoc(window.firebaseDB, 'ansh_tracker', CURRENT_USER.uid);
-  return window.firestoreSetDoc(ref, s).catch(e => console.warn('Firestore save failed', e));
-}
-
+// Fires on every single edit, immediately — no debounce, no batching. The
+// write is async (doesn't block the click), but it's issued the instant
+// saveState() runs, so another signed-in device's live listener (see
+// listenToFirestore below) sees it as fast as Firestore delivers it.
 function syncToFirestore(s) {
   if (!CURRENT_USER) return;
-  _pendingSyncState = s;
-  clearTimeout(_syncTimer);
-  _syncTimer = setTimeout(() => {
-    const pending = _pendingSyncState;
-    _pendingSyncState = null;
-    doFirestoreWrite(pending);
-  }, 800);
+  const ref = window.firestoreDoc(window.firebaseDB, 'ansh_tracker', CURRENT_USER.uid);
+  window.firestoreSetDoc(ref, s).catch(e => console.warn('Firestore save failed', e));
 }
 
-function flushPendingSync() {
-  if (!_pendingSyncState) return;
-  clearTimeout(_syncTimer);
-  const pending = _pendingSyncState;
-  _pendingSyncState = null;
-  doFirestoreWrite(pending);
+function applyRemoteState(remote) {
+  // same backfill loadState applies, so an older remote doc can't leave
+  // dailyLog or a per-track key undefined
+  if (!remote.dailyChecks) remote.dailyChecks = {};
+  if (!remote.dailyLog) remote.dailyLog = {};
+  if (!remote.gfg) remote.gfg = getDefaultState().gfg;
+  if (!remote.tracks) remote.tracks = getDefaultTracks();
+  else Object.keys(getDefaultTracks()).forEach(k => { if (!remote.tracks[k]) remote.tracks[k] = {}; });
+  STATE = migrateGfg(remote);
+  invalidatePlan();
+  localStorage.setItem(activeStorageKey(), JSON.stringify(STATE));
+  // re-render active panel
+  const active = document.querySelector('.panel.active');
+  if (active) {
+    const id = active.id.replace('panel-','');
+    const btn = document.querySelector('.tb.active');
+    showTab(id, btn);
+  }
 }
 
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushPendingSync(); });
-window.addEventListener('pagehide', flushPendingSync);
+let _unsubscribeFirestore = null;
 
-async function loadFromFirestore(uid) {
-  try {
-    const ref = window.firestoreDoc(window.firebaseDB, 'ansh_tracker', uid);
-    const snap = await window.firestoreGetDoc(ref);
-    if (snap.exists()) {
-      const remote = snap.data();
-      // same backfill loadState applies, so an older remote doc can't leave
-      // dailyLog or a per-track key undefined
-      if (!remote.dailyChecks) remote.dailyChecks = {};
-      if (!remote.dailyLog) remote.dailyLog = {};
-      if (!remote.gfg) remote.gfg = getDefaultState().gfg;
-      if (!remote.tracks) remote.tracks = getDefaultTracks();
-      else Object.keys(getDefaultTracks()).forEach(k => { if (!remote.tracks[k]) remote.tracks[k] = {}; });
-      STATE = migrateGfg(remote);
-      invalidatePlan();
-      localStorage.setItem(activeStorageKey(), JSON.stringify(STATE));
-      // re-render active panel
-      const active = document.querySelector('.panel.active');
-      if (active) {
-        const id = active.id.replace('panel-','');
-        const btn = document.querySelector('.tb.active');
-        showTab(id, btn);
+// A one-time fetch means a tab left open never learns about an edit made
+// on another device — this device would show stale data until manually
+// reloaded. A live listener fixes that: it fires immediately with whatever
+// is in Firestore right now (serving as the initial load) and again every
+// time the document changes on any device, for as long as this tab stays
+// open and signed in.
+function listenToFirestore(uid) {
+  if (_unsubscribeFirestore) { _unsubscribeFirestore(); _unsubscribeFirestore = null; }
+  const ref = window.firestoreDoc(window.firebaseDB, 'ansh_tracker', uid);
+  return new Promise(resolve => {
+    let settled = false;
+    const done = () => { if (!settled) { settled = true; resolve(); } };
+    _unsubscribeFirestore = window.firestoreOnSnapshot(ref, snap => {
+      // Our own writes echo back through this same listener — first as an
+      // optimistic local event (hasPendingWrites), then again once the
+      // server confirms it. Both echoes carry the lastUpdated stamp we
+      // just set ourselves, so skip re-applying state we already have;
+      // only a genuinely different lastUpdated means another device wrote
+      // something new.
+      if (snap.metadata.hasPendingWrites) return done();
+      if (snap.exists()) {
+        const remote = snap.data();
+        if (remote.lastUpdated !== STATE.lastUpdated) applyRemoteState(remote);
       }
-    }
-  } catch(e) { console.warn('Firestore load failed', e); }
+      done();
+    }, err => { console.warn('Firestore listen failed', err); done(); });
+  });
+}
+
+function stopListeningToFirestore() {
+  if (_unsubscribeFirestore) { _unsubscribeFirestore(); _unsubscribeFirestore = null; }
 }
 
 // ─── TRACK TOPICS DATA ─────────────────────────────────────────────────────
