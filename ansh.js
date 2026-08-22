@@ -4,6 +4,17 @@ const STORAGE_KEY = 'java-prep-tracker-v2';
 const PLAN_START = '2026-08-24';
 const PLAN_END   = '2027-03-05';
 
+// Signed-in Firebase user, if any. Declared here (not down in the Firebase
+// section) so it's already initialized by the time the first loadState()
+// call below runs — each account gets its own local cache key, so signing
+// into a different Google account on the same device can't bleed the
+// previous account's cached progress into the new one before Firestore
+// has a chance to load the real per-user document.
+let CURRENT_USER = null;
+function activeStorageKey() {
+  return CURRENT_USER ? STORAGE_KEY + ':' + CURRENT_USER.uid : STORAGE_KEY;
+}
+
 const GFG_MODULES = [
   { id:'basics', name:'DSA Basics', color:'#457b9d', topics:[
     {id:'basics-dsa-intro', name:'DSA — What, Why and How?', v:[{n:'Why is DSA Important ??',s:391},{n:'Roadmap to learn DSA',s:883}]},
@@ -354,7 +365,7 @@ function migrateGfg(s) {
 
 function loadState() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(activeStorageKey());
     if (!raw) return getDefaultState();
     const s = JSON.parse(raw);
     if (!s.dailyChecks) s.dailyChecks = {};
@@ -370,7 +381,7 @@ function loadState() {
 
 function saveState(s) {
   s.lastUpdated = new Date().toISOString();
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch(e) {}
+  try { localStorage.setItem(activeStorageKey(), JSON.stringify(s)); } catch(e) {}
   syncToFirestore(s);
 }
 
@@ -1117,7 +1128,7 @@ function renderGFG() {
 // old document straight back down and undo the reset.
 function resetAll() {
   if (!confirm('Reset ALL progress?\n\nThis clears GFG counters, every track, and all daily ticks — on this device and in your synced account. It cannot be undone.')) return;
-  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(activeStorageKey());
   STATE = getDefaultState();
   saveState(STATE);
   invalidatePlan();
@@ -1305,35 +1316,63 @@ function renderRules() {
 }
 
 // ─── INIT ──────────────────────────────────────────────────────────────────
+// Nothing renders and nothing is interactive until a signed-in Google user
+// is confirmed — the loading screen covers the page until Firebase reports
+// its first auth state, then either the sign-in gate or the app itself is
+// shown. There is no "use without sync" path: every session is tied to a
+// Google account, so the same account always sees the same Firestore doc
+// regardless of device.
+
+function showApp() {
+  const loading = document.getElementById('loading-screen');
+  const gate = document.getElementById('signin-overlay');
+  const app = document.getElementById('app');
+  if (loading) loading.style.display = 'none';
+  if (gate) gate.classList.remove('visible');
+  if (app) app.style.display = '';
+}
+
+function showSignInGate() {
+  const loading = document.getElementById('loading-screen');
+  const gate = document.getElementById('signin-overlay');
+  const app = document.getElementById('app');
+  if (loading) loading.style.display = 'none';
+  if (app) app.style.display = 'none';
+  if (gate) gate.classList.add('visible');
+}
 
 function init() {
-  renderToday();
-  renderRules();
-
-  // Firebase auth relay
+  // Firebase auth relay — this fires once for the initial auth check (even
+  // if the answer is "no user") and again on every sign-in/sign-out.
   window.addEventListener('ansh-auth', e => {
     const user = e.detail.user;
     const btn = document.getElementById('auth-btn');
     if (user) {
       CURRENT_USER = user;
-      if (btn) { btn.textContent = 'Sign Out'; btn.className = 'auth-btn signed-in'; }
-      loadFromFirestore(user.uid);
+      STATE = loadState();   // re-read under this account's own local cache key
+      if (btn) { btn.textContent = 'Sign Out (' + (user.displayName || user.email || 'account').split(' ')[0] + ')'; btn.className = 'auth-btn signed-in'; }
+      loadFromFirestore(user.uid).then(() => {
+        renderToday();
+        renderRules();
+        showApp();
+      });
     } else {
       CURRENT_USER = null;
       if (btn) { btn.textContent = 'Sign In'; btn.className = 'auth-btn'; }
+      showSignInGate();
     }
   });
 
   let lastDate = todayStr();
   setInterval(() => {
     const now = todayStr();
-    if (now !== lastDate) { lastDate = now; renderToday(); }
+    if (now !== lastDate) { lastDate = now; if (CURRENT_USER) renderToday(); }
   }, 60000);
 }
 
 // ─── FIREBASE ──────────────────────────────────────────────────────────────
+// CURRENT_USER is declared up top, near STORAGE_KEY — see the comment there.
 
-let CURRENT_USER = null;
 let _syncTimer = null;
 
 function handleAuth() {
@@ -1344,16 +1383,39 @@ function handleAuth() {
   }
 }
 
+// Debounced so rapid clicks don't fire a write per click, but the debounce
+// window is a real window where a closed tab loses an unsynced edit — so
+// the pending write is tracked and flushed immediately (see below) on
+// visibilitychange/pagehide, which is the only reliable "about to close"
+// signal on mobile Safari (beforeunload/unload are not).
+let _pendingSyncState = null;
+
+function doFirestoreWrite(s) {
+  const ref = window.firestoreDoc(window.firebaseDB, 'ansh_tracker', CURRENT_USER.uid);
+  return window.firestoreSetDoc(ref, s).catch(e => console.warn('Firestore save failed', e));
+}
+
 function syncToFirestore(s) {
   if (!CURRENT_USER) return;
+  _pendingSyncState = s;
   clearTimeout(_syncTimer);
-  _syncTimer = setTimeout(async () => {
-    try {
-      const ref = window.firestoreDoc(window.firebaseDB, 'ansh_tracker', CURRENT_USER.uid);
-      await window.firestoreSetDoc(ref, s);
-    } catch(e) { console.warn('Firestore save failed', e); }
+  _syncTimer = setTimeout(() => {
+    const pending = _pendingSyncState;
+    _pendingSyncState = null;
+    doFirestoreWrite(pending);
   }, 800);
 }
+
+function flushPendingSync() {
+  if (!_pendingSyncState) return;
+  clearTimeout(_syncTimer);
+  const pending = _pendingSyncState;
+  _pendingSyncState = null;
+  doFirestoreWrite(pending);
+}
+
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushPendingSync(); });
+window.addEventListener('pagehide', flushPendingSync);
 
 async function loadFromFirestore(uid) {
   try {
@@ -1370,7 +1432,7 @@ async function loadFromFirestore(uid) {
       else Object.keys(getDefaultTracks()).forEach(k => { if (!remote.tracks[k]) remote.tracks[k] = {}; });
       STATE = migrateGfg(remote);
       invalidatePlan();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(STATE));
+      localStorage.setItem(activeStorageKey(), JSON.stringify(STATE));
       // re-render active panel
       const active = document.querySelector('.panel.active');
       if (active) {
