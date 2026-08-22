@@ -2040,66 +2040,214 @@ const TRACK_DEFS = {
   },
 
   sd: {
-    name:'System Design', color:'#e9c46a', totalHours:92,
+    name:'System Design', color:'#e9c46a', totalHours:39.08, courseUrl:'https://interviewready.io/course-page/system-design-course',
     groups:[
-      {id:'sd-lld', name:'InterviewReady LLD Course', hours:12, topics:[
-        {id:'sd-lld-s1',  name:'S1 · Game Engine — Intro to OOP Design Thinking',         h:0.75, p:'V.High'},
-        {id:'sd-lld-s2',  name:'S2 · SRP — Single Responsibility Principle',              h:0.75, p:'V.High'},
-        {id:'sd-lld-s3',  name:'S3 · Prototype Pattern',                                        h:0.5,  p:'V.High'},
-        {id:'sd-lld-s4-1', name:'S4 · DRY principle', h:0.25, p:'V.High'},
-        {id:'sd-lld-s4-2', name:'S4 · Iterator pattern', h:0.25, p:'V.High'},
-        {id:'sd-lld-s5-1', name:'S5 · OCP — Open/Closed Principle', h:0.375, p:'V.High'},
-        {id:'sd-lld-s5-2', name:'S5 · Builder pattern', h:0.375, p:'V.High'},
-        {id:'sd-lld-s6',  name:'S6 · LSP — Liskov Substitution Principle',                 h:0.5,  p:'V.High'},
-        {id:'sd-lld-s7-1', name:'S7 · ISP — Interface Segregation', h:0.188, p:'V.High'},
-        {id:'sd-lld-s7-2', name:'S7 · DIP — Dependency Inversion', h:0.188, p:'V.High'},
-        {id:'sd-lld-s7-3', name:'S7 · Singleton', h:0.188, p:'V.High'},
-        {id:'sd-lld-s7-4', name:'S7 · Chain of Responsibility', h:0.188, p:'V.High'},
-        {id:'sd-lld-s8-1', name:'S8 · Memento pattern', h:0.167, p:'High'},
-        {id:'sd-lld-s8-2', name:'S8 · Proxy pattern', h:0.167, p:'High'},
-        {id:'sd-lld-s8-3', name:'S8 · Flyweight and memory optimisation', h:0.167, p:'High'},
-        {id:'sd-lld-s9-1', name:'S9 · TDD in design', h:0.125, p:'V.High'},
-        {id:'sd-lld-s9-2', name:'S9 · State pattern', h:0.125, p:'V.High'},
-        {id:'sd-lld-s9-3', name:'S9 · Strategy pattern', h:0.125, p:'V.High'},
-        {id:'sd-lld-s9-4', name:'S9 · Factory pattern', h:0.125, p:'V.High'},
-        {id:'sd-lld-s10', name:'S10 · Strategy Pattern — deep dive',                        h:0.75, p:'V.High'},
-        {id:'sd-lld-s11-1', name:'S11 · Command pattern', h:0.25, p:'High'},
-        {id:'sd-lld-s11-2', name:'S11 · PubSub', h:0.25, p:'High'},
+      {id:'sd-basics-intro', name:'Basics · How Do I Use This Course?', hours:0.054, topics:[
+        {id:'sd-basics-intro-1', name:'What do we offer?', h:0.0539, p:'V.High'}
       ]},
-      {id:'sd-mc', name:'Machine Coding Practice', hours:8, topics:[
-        {id:'sd-mc-s1',   name:'MC-S1 · Splitwise — machine coding walkthrough',           h:1,    p:'V.High'},
-        {id:'sd-mc-s2',   name:'MC-S2 · In-Memory Cache (LRU/LFU design)',                      h:2,    p:'V.High'},
-        {id:'sd-mc-s3',   name:'MC-S3 · Event Bus',                                              h:2,    p:'V.High'},
-        {id:'sd-mc-s4',   name:'MC-S4 · Rate Limiter',                                           h:2,    p:'V.High'},
-        {id:'sd-mc-test', name:'LLD Test + Full Review Session',                                       h:1,    p:'V.High'},
+      {id:'sd-basics-ecommerce', name:'Basics · Building an Ecommerce App: 1 to 1M', hours:2.254, topics:[
+        {id:'sd-basics-ecommerce-1', name:'#1: What is System Design?', h:0.1386, p:'V.High'},
+        {id:'sd-basics-ecommerce-2', name:'#2: A star-tup is born!', h:0.0731, p:'V.High'},
+        {id:'sd-basics-ecommerce-3', name:'#3: Where are the pages?', h:0.1611, p:'V.High'},
+        {id:'sd-basics-ecommerce-4', name:'#4: Debugging in the trenches', h:0.1236, p:'V.High'},
+        {id:'sd-basics-ecommerce-5', name:'#4.1: Hard questions, harder answers', h:0.1175, p:'V.High'},
+        {id:'sd-basics-ecommerce-6', name:'#5: Serverless or Server-More?', h:0.2483, p:'V.High'},
+        {id:'sd-basics-ecommerce-7', name:'#6: Database-like Memory, Cache-like Recall', h:0.3208, p:'V.High'},
+        {id:'sd-basics-ecommerce-8', name:'#7: The case of the Expensive Cache', h:0.2281, p:'V.High'},
+        {id:'sd-basics-ecommerce-9', name:'#8: Sale Day Jitters', h:0.4028, p:'V.High'},
+        {id:'sd-basics-ecommerce-10', name:'#9: A new CTO is born!', h:0.2772, p:'V.High'},
+        {id:'sd-basics-ecommerce-11', name:'#10: Concluding the series!', h:0.1625, p:'V.High'}
       ]},
-      {id:'sd-hld', name:'HLD Walkthroughs', hours:42, topics:[
-        {id:'sd-hld-news-feed',         name:'News Feed / Timeline (fanout strategies)',              h:3, p:'V.High'},
-        {id:'sd-hld-url-shortener',     name:'URL Shortener (hashing, DB, cache, scale)',             h:3, p:'V.High'},
-        {id:'sd-hld-rate-limiter',      name:'Rate Limiter HLD (token bucket, sliding window)',       h:3, p:'V.High'},
-        {id:'sd-hld-notification',      name:'Notification Service (queue, retry, DLQ)',              h:3, p:'V.High'},
-        {id:'sd-hld-distributed-locks', name:'Distributed Locks (Redis/ZooKeeper)',                   h:2, p:'High'},
-        {id:'sd-hld-messaging',         name:'Distributed Messaging — Kafka deep design',        h:3, p:'V.High'},
-        {id:'sd-hld-chat',              name:'Real-time Chat App (WebSocket + presence)',             h:3, p:'High'},
-        {id:'sd-hld-autocomplete',      name:'Search Autocomplete (Trie + caching)',                  h:3, p:'High'},
-        {id:'sd-hld-stock',             name:'Stock Exchange / Trading System (LLD+HLD)',             h:3, p:'High'},
-        {id:'sd-hld-news-feed-deep',    name:'News Feed Deep Redesign',                               h:3, p:'High'},
-        {id:'sd-hld-twitter-search',    name:'Twitter Search (Elasticsearch + caching)',              h:3, p:'High'},
-        {id:'sd-hld-file-storage',      name:'Distributed File Storage (S3/HDFS-like)',               h:3, p:'High'},
-        {id:'sd-hld-live-streaming',    name:'Live Streaming (Twitch/YouTube)',                       h:3, p:'Medium'},
-        {id:'sd-hld-company',           name:'Company-specific Design (Walmart/PayPal)',              h:3, p:'High'},
+      {id:'sd-concepts-db', name:'Concepts · Databases Deep Dive', hours:0.265, topics:[
+        {id:'sd-concepts-db-1', name:'What are Databases?', h:0.0775, p:'V.High'},
+        {id:'sd-concepts-db-2', name:'Storage and Retrieval', h:0.0733, p:'V.High'},
+        {id:'sd-concepts-db-3', name:'What is a NoSQL database?', h:0.04, p:'V.High'},
+        {id:'sd-concepts-db-4', name:'Types of Databases: Graph, TimeSeries and Object', h:0.0375, p:'V.High'},
+        {id:'sd-concepts-db-5', name:'What database should you choose?', h:0.0367, p:'V.High'}
       ]},
-      {id:'sd-fw', name:'Framework & Articulation', hours:10, topics:[
-        {id:'sd-reshaded-1', name:'RESHADED: Requirements and scope', h:0.5, p:'V.High'},
-        {id:'sd-reshaded-2', name:'RESHADED: Estimation', h:0.5, p:'V.High'},
-        {id:'sd-reshaded-3', name:'RESHADED: Storage schema and API', h:0.5, p:'V.High'},
-        {id:'sd-reshaded-4', name:'RESHADED: High-level then detailed design', h:0.5, p:'V.High'},
-        {id:'sd-tradeoffs-1', name:'Consistency vs availability', h:0.4, p:'V.High'},
-        {id:'sd-tradeoffs-2', name:'Latency vs throughput', h:0.4, p:'V.High'},
-        {id:'sd-tradeoffs-3', name:'Normalisation vs denormalisation', h:0.4, p:'V.High'},
-        {id:'sd-tradeoffs-4', name:'Push vs pull', h:0.4, p:'V.High'},
-        {id:'sd-tradeoffs-5', name:'SQL vs NoSQL', h:0.4, p:'V.High'},
-        {id:'sd-capacity',   name:'Capacity estimation (back-of-envelope)',                           h:1, p:'High'},
+      {id:'sd-concepts-consistency', name:'Concepts · Consistency in Distributed Systems', hours:0.639, topics:[
+        {id:'sd-concepts-consistency-1', name:'What is Data Consistency?', h:0.025, p:'V.High'},
+        {id:'sd-concepts-consistency-2', name:'Linearizable Consistency', h:0.0536, p:'V.High'},
+        {id:'sd-concepts-consistency-3', name:'Eventual Consistency', h:0.0306, p:'V.High'},
+        {id:'sd-concepts-consistency-4', name:'Causal Consistency', h:0.0764, p:'V.High'},
+        {id:'sd-concepts-consistency-5', name:'Quorum', h:0.1081, p:'V.High'},
+        {id:'sd-concepts-consistency-6', name:'Data Consistency Levels Tradeoffs', h:0.0333, p:'V.High'},
+        {id:'sd-concepts-consistency-7', name:'Transaction Isolation Levels - Read Uncommitted Data', h:0.0533, p:'V.High'},
+        {id:'sd-concepts-consistency-8', name:'Read Committed', h:0.0622, p:'V.High'},
+        {id:'sd-concepts-consistency-9', name:'Repeatable Reads', h:0.0889, p:'V.High'},
+        {id:'sd-concepts-consistency-10', name:'Serializable Isolation Level', h:0.0333, p:'V.High'},
+        {id:'sd-concepts-consistency-11', name:'Transaction Level Implementations', h:0.0606, p:'V.High'},
+        {id:'sd-concepts-consistency-12', name:'Conclusion - Transaction Isolation', h:0.0142, p:'V.High'}
+      ]},
+      {id:'sd-concepts-caches', name:'Concepts · Caches Deep Dive', hours:0.552, topics:[
+        {id:'sd-concepts-caches-1', name:'Caching: Basics', h:0.19, p:'V.High'},
+        {id:'sd-concepts-caches-2', name:'Write Policies: Write Back Policy', h:0.0764, p:'V.High'},
+        {id:'sd-concepts-caches-3', name:'Write Through Policy', h:0.0425, p:'V.High'},
+        {id:'sd-concepts-caches-4', name:'Write Around Policy', h:0.0564, p:'V.High'},
+        {id:'sd-concepts-caches-5', name:'Replacement Policies: LRU, LFU and Segmented LRU', h:0.1872, p:'V.High'}
+      ]},
+      {id:'sd-concepts-networks', name:'Concepts · Networks Deep Dive', hours:0.948, topics:[
+        {id:'sd-concepts-networks-1', name:'Breakdown: The physical layer', h:0.0494, p:'V.High'},
+        {id:'sd-concepts-networks-2', name:'Breakdown: The Routing Layer', h:0.0556, p:'V.High'},
+        {id:'sd-concepts-networks-3', name:'Breakdown: The behavioral layer', h:0.0775, p:'V.High'},
+        {id:'sd-concepts-networks-4', name:'Connecting to the internet: ISPs, DNS and everything in between', h:0.1247, p:'V.High'},
+        {id:'sd-concepts-networks-5', name:'Internal routing: MAC addresses and NAT', h:0.1147, p:'V.High'},
+        {id:'sd-concepts-networks-6', name:'HTTP, WebSockets, TCP and UDP', h:0.1475, p:'V.High'},
+        {id:'sd-concepts-networks-7', name:'Communication Standards: REST, GraphQL and GRPC', h:0.1214, p:'V.High'},
+        {id:'sd-concepts-networks-8', name:'Head of line blocking', h:0.0878, p:'V.High'},
+        {id:'sd-concepts-networks-9', name:'Video transmission: WebRTC and HTTP-DASH', h:0.1692, p:'V.High'}
+      ]},
+      {id:'sd-concepts-replication', name:'Concepts · Database Replication and Migration', hours:0.676, topics:[
+        {id:'sd-concepts-replication-1', name:'Primary Replica Architectures', h:0.0517, p:'V.High'},
+        {id:'sd-concepts-replication-2', name:'WAL and Change Data Capture', h:0.0669, p:'V.High'},
+        {id:'sd-concepts-replication-3', name:'Write Amplification and Split Brain', h:0.0675, p:'V.High'},
+        {id:'sd-concepts-replication-4', name:'Database Migrations', h:0.1697, p:'V.High'},
+        {id:'sd-concepts-replication-5', name:'Migrating the Database', h:0.1303, p:'V.High'},
+        {id:'sd-concepts-replication-6', name:'Migration Across Regions', h:0.1897, p:'V.High'}
+      ]},
+      {id:'sd-concepts-security', name:'Concepts · Security in Distributed Systems', hours:0.594, topics:[
+        {id:'sd-concepts-security-1', name:'Security aspects in distributed systems', h:0.0625, p:'V.High'},
+        {id:'sd-concepts-security-2', name:'Token Based Auth', h:0.1528, p:'V.High'},
+        {id:'sd-concepts-security-3', name:'SSO and OAuth', h:0.0836, p:'V.High'},
+        {id:'sd-concepts-security-4', name:'Access Control Lists and Rule Engines', h:0.1056, p:'V.High'},
+        {id:'sd-concepts-security-5', name:'Attack Vectors - Hackers, Developers and Code', h:0.0811, p:'V.High'},
+        {id:'sd-concepts-security-6', name:'How videos are protected inside CDNs', h:0.1086, p:'V.High'}
+      ]},
+      {id:'sd-concepts-observability', name:'Concepts · Observability in Distributed Systems', hours:0.275, topics:[
+        {id:'sd-concepts-observability-1', name:'Introduction to Observability', h:0.0167, p:'V.High'},
+        {id:'sd-concepts-observability-2', name:'Logging - Best Practices', h:0.0358, p:'V.High'},
+        {id:'sd-concepts-observability-3', name:'Monitoring Metrics', h:0.0239, p:'V.High'},
+        {id:'sd-concepts-observability-4', name:'Anomaly Detection: Holt-Winters Algorithm', h:0.12, p:'V.High'},
+        {id:'sd-concepts-observability-5', name:'Root Cause Analysis', h:0.0689, p:'V.High'},
+        {id:'sd-concepts-observability-6', name:'Conclusion to Observability', h:0.01, p:'V.High'}
+      ]},
+      {id:'sd-concepts-paxos', name:'Concepts · Distributed Consensus with Paxos', hours:0.451, topics:[
+        {id:'sd-concepts-paxos-1', name:'The Problem of Distributed Consensus', h:0.0911, p:'V.High'},
+        {id:'sd-concepts-paxos-2', name:'Basic Algorithm', h:0.1294, p:'V.High'},
+        {id:'sd-concepts-paxos-3', name:'Improving the algorithm', h:0.0492, p:'V.High'},
+        {id:'sd-concepts-paxos-4', name:'Termination Conditions', h:0.1211, p:'V.High'},
+        {id:'sd-concepts-paxos-5', name:'Practical Considerations', h:0.06, p:'V.High'}
+      ]},
+      {id:'sd-concepts-ratelimit', name:'Concepts · Distributed Rate Limiting', hours:0.46, topics:[
+        {id:'sd-concepts-ratelimit-1', name:'The Oracle and the Timer Wheel', h:0.265, p:'V.High'},
+        {id:'sd-concepts-ratelimit-2', name:'Partitioning and Real-life Optimisations', h:0.1953, p:'V.High'}
+      ]},
+      {id:'sd-concepts-tradeoffs', name:'Concepts · System Design Tradeoffs', hours:0.848, topics:[
+        {id:'sd-concepts-tradeoffs-1', name:'Introduction to design tradeoffs', h:0.0661, p:'V.High'},
+        {id:'sd-concepts-tradeoffs-2', name:'Pull vs. Push Architectures', h:0.2056, p:'V.High'},
+        {id:'sd-concepts-tradeoffs-3', name:'Memory vs. Latency', h:0.0286, p:'V.High'},
+        {id:'sd-concepts-tradeoffs-4', name:'Throughput vs. Latency', h:0.1447, p:'V.High'},
+        {id:'sd-concepts-tradeoffs-5', name:'Consistency vs. Availability', h:0.0969, p:'V.High'},
+        {id:'sd-concepts-tradeoffs-6', name:'Latency vs. Accuracy', h:0.1094, p:'V.High'},
+        {id:'sd-concepts-tradeoffs-7', name:'SQL vs. NoSQL databases', h:0.0967, p:'V.High'},
+        {id:'sd-concepts-tradeoffs-8', name:'Relations Between Tradeoffs', h:0.1003, p:'V.High'}
+      ]},
+      {id:'sd-hld-gmail', name:'High Level Design · Design an Emailing Service like Gmail', hours:0.768, topics:[
+        {id:'sd-hld-gmail-1', name:'Scope and Requirement setting', h:0.0058, p:'V.High'},
+        {id:'sd-hld-gmail-2', name:'Chapter #1: Service Registration and Proxies', h:0.2419, p:'V.High'},
+        {id:'sd-hld-gmail-3', name:'Chapter #2: Authentication & Global Caching', h:0.1575, p:'V.High'},
+        {id:'sd-hld-gmail-4', name:'Chapter #3: API contracts & Versioning', h:0.1567, p:'V.High'},
+        {id:'sd-hld-gmail-5', name:'Chapter #4: Sending, Tagging & Searching Emails', h:0.0847, p:'V.High'},
+        {id:'sd-hld-gmail-6', name:'Chapter #5: Contacts & Groups', h:0.1217, p:'V.High'}
+      ]},
+      {id:'sd-hld-chess', name:'High Level Design · Chess Design: A Highly Scalable Turn-Based Gaming Website', hours:0.758, topics:[
+        {id:'sd-hld-chess-1', name:'Requirements of a chess website', h:0.1936, p:'V.High'},
+        {id:'sd-hld-chess-2', name:'Handling connections at scale', h:0.2317, p:'V.High'},
+        {id:'sd-hld-chess-3', name:'Consistent Hashing vs. Sharding', h:0.1706, p:'V.High'},
+        {id:'sd-hld-chess-4', name:'Connection related thundering herds', h:0.075, p:'V.High'},
+        {id:'sd-hld-chess-5', name:'Request Batching and Conclusion', h:0.0872, p:'V.High'}
+      ]},
+      {id:'sd-hld-hotstar', name:'High Level Design · Hotstar: Live Video Streaming Design', hours:0.427, topics:[
+        {id:'sd-hld-hotstar-1', name:'Live Streaming Requirement Breakdown', h:0.0881, p:'V.High'},
+        {id:'sd-hld-hotstar-2', name:'Video Ingestion and Transformation', h:0.0856, p:'V.High'},
+        {id:'sd-hld-hotstar-3', name:'Transferring processed videos to end users', h:0.1319, p:'V.High'},
+        {id:'sd-hld-hotstar-4', name:'Virtual Advertising for live sports events', h:0.1219, p:'V.High'}
+      ]},
+      {id:'sd-hld-google-docs', name:'High Level Design · Google Docs: Collaborative Editor Design', hours:0.81, topics:[
+        {id:'sd-hld-google-docs-1', name:'Google Docs Requirements', h:0.0978, p:'V.High'},
+        {id:'sd-hld-google-docs-2', name:'Document Schema', h:0.0947, p:'V.High'},
+        {id:'sd-hld-google-docs-3', name:'Storing Documents', h:0.0528, p:'V.High'},
+        {id:'sd-hld-google-docs-4', name:'Version History', h:0.0928, p:'V.High'},
+        {id:'sd-hld-google-docs-5', name:'Avoiding Thundering Herds in Crons', h:0.0531, p:'V.High'},
+        {id:'sd-hld-google-docs-6', name:'Compression and Caching', h:0.0464, p:'V.High'},
+        {id:'sd-hld-google-docs-7', name:'Concurrent Writes with Locks', h:0.1389, p:'V.High'},
+        {id:'sd-hld-google-docs-8', name:'Operational Transform Overview', h:0.1297, p:'V.High'},
+        {id:'sd-hld-google-docs-9', name:'Permission Management', h:0.1039, p:'V.High'}
+      ]},
+      {id:'sd-hld-uber', name:'High Level Design · Design a Cab Aggregator App like Uber', hours:0.779, topics:[
+        {id:'sd-hld-uber-1', name:'Requirements of a cab aggregator', h:0.1117, p:'V.High'},
+        {id:'sd-hld-uber-2', name:'Static Pricing of Rides', h:0.145, p:'V.High'},
+        {id:'sd-hld-uber-3', name:'Ride Matching', h:0.1511, p:'V.High'},
+        {id:'sd-hld-uber-4', name:'Calculating Estimated Time of Arrival', h:0.2069, p:'V.High'},
+        {id:'sd-hld-uber-5', name:'Matching Drivers with Live Rides', h:0.1644, p:'V.High'}
+      ]},
+      {id:'sd-hld-maps', name:'High Level Design · Design a Location Based Service like Google Maps', hours:0.897, topics:[
+        {id:'sd-hld-maps-1', name:'Requirements of a Map application', h:0.1361, p:'V.High'},
+        {id:'sd-hld-maps-2', name:'Routing Challenges in Maps', h:0.1128, p:'V.High'},
+        {id:'sd-hld-maps-3', name:'Partitioning Algorithm: Splitting the graph into regions', h:0.0864, p:'V.High'},
+        {id:'sd-hld-maps-4', name:'Finding the shortest path - A* search', h:0.1272, p:'V.High'},
+        {id:'sd-hld-maps-5', name:'GeoHash and other proximity filters', h:0.1069, p:'V.High'},
+        {id:'sd-hld-maps-6', name:'Detecting traffic jams and broadcasting updates', h:0.1625, p:'V.High'},
+        {id:'sd-hld-maps-7', name:'Calculating an accurate and efficient estimated time of arrival', h:0.1653, p:'V.High'}
+      ]},
+      {id:'sd-hld-whatsapp-calling', name:'High Level Design · WhatsApp Calling App', hours:0.581, topics:[
+        {id:'sd-hld-whatsapp-calling-1', name:'Calling App Design', h:0.2367, p:'V.High'},
+        {id:'sd-hld-whatsapp-calling-2', name:'Concept #1: Breaking calls into dialogs', h:0.1161, p:'V.High'},
+        {id:'sd-hld-whatsapp-calling-3', name:'Concept #2: The state machine', h:0.0561, p:'V.High'},
+        {id:'sd-hld-whatsapp-calling-4', name:'Concept #3: Charging Users', h:0.0675, p:'V.High'},
+        {id:'sd-hld-whatsapp-calling-5', name:'Concept #4: Consistent Hashing for caching call state', h:0.105, p:'V.High'}
+      ]},
+      {id:'sd-hld-recommendation', name:'High Level Design · Recommendation Engine Design', hours:0.354, topics:[
+        {id:'sd-hld-recommendation-1', name:'Converting data sources to a lake', h:0.1008, p:'V.High'},
+        {id:'sd-hld-recommendation-2', name:'The Map Reduce Architecture', h:0.0589, p:'V.High'},
+        {id:'sd-hld-recommendation-3', name:'Fault tolerance and engineering optimizations', h:0.0508, p:'V.High'},
+        {id:'sd-hld-recommendation-4', name:'Real time analytics', h:0.0953, p:'V.High'},
+        {id:'sd-hld-recommendation-5', name:'Ranking restaurants in real time and batch', h:0.0478, p:'V.High'}
+      ]},
+      {id:'sd-paper-memcached', name:'Research Paper Analysis · Scaling Memcached at Facebook', hours:7.877, topics:[
+        {id:'sd-paper-memcached-1', name:'Caching for Social Media', h:1.9556, p:'V.High'},
+        {id:'sd-paper-memcached-2', name:'Caching for Social Media - Revision', h:2.0947, p:'V.High'},
+        {id:'sd-paper-memcached-3', name:'Cascading Failures and Code Caches', h:2.3247, p:'V.High'},
+        {id:'sd-paper-memcached-4', name:'Managing consistency across regions', h:1.5017, p:'V.High'}
+      ]},
+      {id:'sd-paper-zanzibar', name:'Research Paper Analysis · Google\'s Authorization Service (Zanzibar)', hours:6.228, topics:[
+        {id:'sd-paper-zanzibar-1', name:'Motivation and Data Model', h:2.0564, p:'V.High'},
+        {id:'sd-paper-zanzibar-2', name:'APIs and Google Spanner', h:1.7056, p:'V.High'},
+        {id:'sd-paper-zanzibar-3', name:'Overall Architecture and Optimizations', h:2.0269, p:'V.High'},
+        {id:'sd-paper-zanzibar-4', name:'Rate Limiting and Request Collapsing', h:0.4394, p:'V.High'}
+      ]},
+      {id:'sd-paper-gorilla', name:'Research Paper Analysis · Timeseries Databases: Gorilla and Monarch', hours:2.548, topics:[
+        {id:'sd-paper-gorilla-1', name:'What is a time series database?', h:0.0467, p:'V.High'},
+        {id:'sd-paper-gorilla-2', name:'Requirements', h:0.0661, p:'V.High'},
+        {id:'sd-paper-gorilla-3', name:'Data Schema', h:0.0786, p:'V.High'},
+        {id:'sd-paper-gorilla-4', name:'Compression Algorithms', h:0.1964, p:'V.High'},
+        {id:'sd-paper-gorilla-5', name:'Persistence', h:0.0742, p:'V.High'},
+        {id:'sd-paper-gorilla-6', name:'Tradeoffs - Choosing a time window', h:0.0733, p:'V.High'},
+        {id:'sd-paper-gorilla-7', name:'Load Balancing', h:0.0714, p:'V.High'},
+        {id:'sd-paper-gorilla-8', name:'Replication and Fault tolerance', h:0.0267, p:'V.High'},
+        {id:'sd-paper-gorilla-9', name:'Monarch\'s architecture', h:0.1022, p:'V.High'},
+        {id:'sd-paper-gorilla-10', name:'System features', h:0.0406, p:'V.High'},
+        {id:'sd-paper-gorilla-11', name:'Query Optimization', h:0.0625, p:'V.High'},
+        {id:'sd-paper-gorilla-12', name:'Livestream: GorillaDB Timeseries database', h:1.0647, p:'V.High'},
+        {id:'sd-paper-gorilla-13', name:'Livestream: GorillaDB Timeseries database II', h:0.6444, p:'V.High'}
+      ]},
+      {id:'sd-paper-tao', name:'Research Paper Analysis · TAO: An In-Memory Graph Database by Meta', hours:3.196, topics:[
+        {id:'sd-paper-tao-1', name:'Usecases and Data Schema', h:1.2781, p:'V.High'},
+        {id:'sd-paper-tao-2', name:'Data Consistency and evictions', h:1.3833, p:'V.High'},
+        {id:'sd-paper-tao-3', name:'Cache Features for the graph', h:0.5342, p:'V.High'}
+      ]},
+      {id:'sd-paper-dremel', name:'Research Paper Analysis · Google Dremel: Interactive Analytics', hours:1.23, topics:[
+        {id:'sd-paper-dremel-1', name:'Google Dremel', h:1.23, p:'V.High'}
+      ]},
+      {id:'sd-paper-kafka', name:'Research Paper Analysis · Apache Kafka (Feb 2025)', hours:1.867, topics:[
+        {id:'sd-paper-kafka-1', name:'Kafka Paper Reading - Combined', h:1.8667, p:'V.High'}
+      ]},
+      {id:'sd-paper-spark', name:'Research Paper Analysis · Apache Spark', hours:1.19, topics:[
+        {id:'sd-paper-spark-1', name:'Apache Spark - Combined', h:1.19, p:'V.High'}
+      ]},
+      {id:'sd-paper-milvus', name:'Research Paper Analysis · Milvus DB', hours:1.556, topics:[
+        {id:'sd-paper-milvus-1', name:'What are Vectors?', h:0.9228, p:'V.High'},
+        {id:'sd-paper-milvus-2', name:'Vector Indexes - HNSW', h:0.6328, p:'V.High'}
       ]},
     ]
   },

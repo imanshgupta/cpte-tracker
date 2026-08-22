@@ -471,6 +471,18 @@ t('course links: only the AWS SAA groups in Cloud link out, Docker/K8s do not', 
   ok(f.courseUrlFor('cloud', 'cl-saa-fund').indexOf('cantrill.io') > 0, 'AWS SAA group links to cantrill.io');
   eq(f.courseUrlFor('cloud', 'cl-docker'), null, 'Docker group has no course link');
 });
+t('SD is the real InterviewReady System Design course: 151 videos, all 4 modules present, links out', () => {
+  R();
+  const nVideos = g.TRACK_DEFS.sd.groups.reduce((a, x) => a + x.topics.length, 0);
+  eq(nVideos, 151, '151 real videos across Basics/Concepts/HLD/Research Papers');
+  ['Basics ·', 'Concepts ·', 'High Level Design ·', 'Research Paper Analysis ·'].forEach(prefix =>
+    ok(g.TRACK_DEFS.sd.groups.some(x => x.name.indexOf(prefix) === 0), 'missing module: ' + prefix));
+  f.renderTrackTab('sd');
+  const h = getEl('panel-sd').innerHTML;
+  ok(h.indexOf('interviewready.io') > 0, 'SD links to interviewready.io');
+  ok(h.indexOf('Design an Emailing Service like Gmail') > 0, 'real HLD case study title present');
+  ok(h.indexOf('Scaling Memcached at Facebook') > 0, 'real research paper title present');
+});
 t('setTrackTopic toggles done → not-started on second click', () => {
   R();
   const id = g.TRACK_DEFS.java.groups[0].topics[0].id;
