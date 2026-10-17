@@ -57,7 +57,7 @@ Harness for `ansh.js` only: stubs DOM, `localStorage`, and `Date` (pinned to pla
 
 `service-worker.js` is cache-first and pre-caches an explicit `FILES_TO_CACHE` list.
 
-- **Every deploy that changes a cached file:** bump `CACHE_NAME` (currently `tracker-v27`) or clients keep serving stale copies.
+- **Every deploy that changes a cached file:** bump `CACHE_NAME` (currently `tracker-v28`) or clients keep serving stale copies.
 - **New static file:** add it to `FILES_TO_CACHE` as well.
 - Install prompt: `ansh.js` shows a floating "Install App" button on `beforeinstallprompt` (Chrome only; iOS uses Add to Home Screen).
 

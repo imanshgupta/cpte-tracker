@@ -2300,76 +2300,93 @@ const TRACK_DEFS = {
   sql: {
     name:'SQL / DB', color:'#a87fb8', totalHours:23.9,
     groups:[
-      {id:'sql-refresher', name:'Foundations Refresher', hours:2.5, topics:[
-        {id:'sql-refresher-1', name:'SELECT, WHERE, DISTINCT, ORDER BY, LIMIT', h:0.4, p:'High'},
-        {id:'sql-refresher-2', name:'Filtering: IN, BETWEEN, LIKE, IS NULL', h:0.3, p:'High'},
-        {id:'sql-refresher-3', name:'Aggregates: COUNT, SUM, AVG, MIN, MAX', h:0.35, p:'High'},
-        {id:'sql-refresher-4', name:'GROUP BY and HAVING (vs WHERE)', h:0.45, p:'V.High'},
-        {id:'sql-refresher-5', name:'NULL semantics & 3-valued logic (COALESCE, NULLIF)', h:0.4, p:'V.High'},
-        {id:'sql-refresher-6', name:'INSERT / UPDATE / DELETE, CASE expressions', h:0.3, p:'Medium'},
-        {id:'sql-refresher-7', name:'Data types & implicit conversion gotchas', h:0.3, p:'Medium'}
+      {id:'sql-refresher', name:'1 · Foundations Refresher', hours:2.5, topics:[
+        {id:'sql-refresher-1', name:'SELECT, column/table aliases, DISTINCT, computed columns', h:0.25, p:'High'},
+        {id:'sql-refresher-2', name:'WHERE: comparison & logical operators, AND/OR/NOT precedence', h:0.25, p:'High'},
+        {id:'sql-refresher-3', name:'Pattern & range filters: IN, BETWEEN, LIKE, wildcards, ESCAPE', h:0.3, p:'High'},
+        {id:'sql-refresher-4', name:'ORDER BY multi-key + NULLS FIRST/LAST; LIMIT/OFFSET paging', h:0.25, p:'High'},
+        {id:'sql-refresher-5', name:'Aggregates: COUNT(*) vs COUNT(col) vs COUNT(DISTINCT), SUM/AVG/MIN/MAX', h:0.3, p:'V.High'},
+        {id:'sql-refresher-6', name:'GROUP BY one & many columns; the "every non-agg must be grouped" rule', h:0.3, p:'V.High'},
+        {id:'sql-refresher-7', name:'HAVING vs WHERE — filtering before vs after aggregation', h:0.3, p:'V.High'},
+        {id:'sql-refresher-8', name:'NULL 3-valued logic; COALESCE, NULLIF, IS [NOT] DISTINCT FROM', h:0.3, p:'V.High'},
+        {id:'sql-refresher-9', name:'CASE (simple/searched) + INSERT / UPDATE / DELETE & RETURNING', h:0.25, p:'Medium'}
       ]},
-      {id:'sql-joins', name:'Joins In Depth', hours:2.6, topics:[
-        {id:'sql-joins-1', name:'INNER vs LEFT/RIGHT vs FULL OUTER', h:0.5, p:'V.High'},
-        {id:'sql-joins-2', name:'Multi-table joins & join order', h:0.45, p:'High'},
-        {id:'sql-joins-3', name:'Self joins', h:0.4, p:'High'},
-        {id:'sql-joins-4', name:'CROSS JOIN & when it is intended', h:0.25, p:'Medium'},
-        {id:'sql-joins-5', name:'Anti-joins: NOT EXISTS vs NOT IN vs LEFT JOIN … NULL', h:0.55, p:'V.High'},
-        {id:'sql-joins-6', name:'Fan-out / row multiplication pitfalls', h:0.45, p:'V.High'}
+      {id:'sql-joins', name:'2 · Joins In Depth', hours:2.6, topics:[
+        {id:'sql-joins-1', name:'INNER JOIN across 2–3 tables; ON vs WHERE placement', h:0.35, p:'V.High'},
+        {id:'sql-joins-2', name:'LEFT / RIGHT OUTER JOIN — which rows survive and why', h:0.35, p:'V.High'},
+        {id:'sql-joins-3', name:'FULL OUTER JOIN (and emulating it in MySQL with UNION)', h:0.3, p:'High'},
+        {id:'sql-joins-4', name:'Self join — employee/manager and pairwise comparisons', h:0.3, p:'High'},
+        {id:'sql-joins-5', name:'CROSS JOIN & when a Cartesian product is actually intended', h:0.2, p:'Medium'},
+        {id:'sql-joins-6', name:'Anti-join: NOT EXISTS vs NOT IN vs LEFT JOIN … IS NULL (NULL trap)', h:0.4, p:'V.High'},
+        {id:'sql-joins-7', name:'Semi-join with EXISTS; avoiding accidental duplicate rows', h:0.3, p:'High'},
+        {id:'sql-joins-8', name:'Fan-out / row multiplication — detect and fix with aggregation', h:0.4, p:'V.High'}
       ]},
-      {id:'sql-subq-cte', name:'Subqueries & CTEs', hours:2.35, topics:[
-        {id:'sql-subq-cte-1', name:'Scalar & correlated subqueries', h:0.5, p:'V.High'},
-        {id:'sql-subq-cte-2', name:'IN / EXISTS / ANY / ALL and correlation', h:0.45, p:'V.High'},
-        {id:'sql-subq-cte-3', name:'CTEs (WITH) — readability & reuse', h:0.4, p:'High'},
-        {id:'sql-subq-cte-4', name:'Recursive CTEs (hierarchies, sequences)', h:0.6, p:'High'},
-        {id:'sql-subq-cte-5', name:'Derived table vs CTE vs view — trade-offs', h:0.4, p:'Medium'}
+      {id:'sql-subq-cte', name:'3 · Subqueries & CTEs', hours:2.35, topics:[
+        {id:'sql-subq-cte-1', name:'Scalar subqueries in SELECT and WHERE', h:0.3, p:'V.High'},
+        {id:'sql-subq-cte-2', name:'Correlated subqueries — how they re-evaluate per outer row', h:0.4, p:'V.High'},
+        {id:'sql-subq-cte-3', name:'IN vs EXISTS vs ANY/ALL — semantics & NULL pitfalls', h:0.35, p:'V.High'},
+        {id:'sql-subq-cte-4', name:'Derived tables (subquery in FROM) and when they help', h:0.3, p:'High'},
+        {id:'sql-subq-cte-5', name:'CTEs (WITH): readability, reuse, chaining multiple CTEs', h:0.3, p:'High'},
+        {id:'sql-subq-cte-6', name:'Recursive CTEs — hierarchies, number & date sequences', h:0.45, p:'High'},
+        {id:'sql-subq-cte-7', name:'CTE vs derived table vs view — when to use which', h:0.25, p:'Medium'}
       ]},
-      {id:'sql-window', name:'Window Functions', hours:2.8, topics:[
-        {id:'sql-window-1', name:'OVER / PARTITION BY / ORDER BY mental model', h:0.5, p:'V.High'},
-        {id:'sql-window-2', name:'ROW_NUMBER, RANK, DENSE_RANK', h:0.5, p:'V.High'},
-        {id:'sql-window-3', name:'LAG / LEAD (deltas, comparisons)', h:0.45, p:'V.High'},
-        {id:'sql-window-4', name:'Frames: running totals & moving averages', h:0.55, p:'High'},
-        {id:'sql-window-5', name:'NTILE, FIRST_VALUE, LAST_VALUE', h:0.35, p:'Medium'},
-        {id:'sql-window-6', name:'Top-N per group pattern', h:0.45, p:'V.High'}
+      {id:'sql-window', name:'4 · Window Functions', hours:2.8, topics:[
+        {id:'sql-window-1', name:'OVER / PARTITION BY / ORDER BY — the mental model', h:0.4, p:'V.High'},
+        {id:'sql-window-2', name:'ROW_NUMBER vs RANK vs DENSE_RANK (tie handling)', h:0.4, p:'V.High'},
+        {id:'sql-window-3', name:'Aggregate windows (SUM/AVG OVER) vs GROUP BY', h:0.35, p:'V.High'},
+        {id:'sql-window-4', name:'LAG / LEAD — row-to-row deltas and comparisons', h:0.35, p:'V.High'},
+        {id:'sql-window-5', name:'Frame clause: ROWS vs RANGE; running totals', h:0.4, p:'High'},
+        {id:'sql-window-6', name:'Moving averages over a sliding frame', h:0.3, p:'High'},
+        {id:'sql-window-7', name:'NTILE, FIRST_VALUE / LAST_VALUE (and the frame gotcha)', h:0.3, p:'Medium'},
+        {id:'sql-window-8', name:'Top-N per group via ROW_NUMBER() filter pattern', h:0.3, p:'V.High'}
       ]},
-      {id:'sql-index-opt', name:'Indexing & Query Optimization', hours:3.35, topics:[
-        {id:'sql-index-opt-1', name:'How B-tree indexes work', h:0.5, p:'V.High'},
-        {id:'sql-index-opt-2', name:'Clustered vs secondary indexes', h:0.45, p:'V.High'},
-        {id:'sql-index-opt-3', name:'Composite indexes & leftmost-prefix rule', h:0.5, p:'V.High'},
-        {id:'sql-index-opt-4', name:'Covering indexes & index-only scans', h:0.4, p:'High'},
-        {id:'sql-index-opt-5', name:'Reading EXPLAIN / EXPLAIN ANALYZE', h:0.6, p:'V.High'},
-        {id:'sql-index-opt-6', name:'Why an index is NOT used (functions, leading %, type mismatch)', h:0.5, p:'V.High'},
-        {id:'sql-index-opt-7', name:'Selectivity, cardinality & statistics', h:0.4, p:'High'}
+      {id:'sql-index-opt', name:'5 · Indexing & Query Optimization', hours:3.35, topics:[
+        {id:'sql-index-opt-1', name:'B-tree index structure — what lookups it speeds up', h:0.4, p:'V.High'},
+        {id:'sql-index-opt-2', name:'Clustered (PK) vs secondary indexes; how a row is located', h:0.4, p:'V.High'},
+        {id:'sql-index-opt-3', name:'Composite indexes & the leftmost-prefix rule', h:0.45, p:'V.High'},
+        {id:'sql-index-opt-4', name:'Covering index / index-only scan', h:0.35, p:'High'},
+        {id:'sql-index-opt-5', name:'Indexing for ORDER BY and range scans', h:0.3, p:'High'},
+        {id:'sql-index-opt-6', name:'Reading EXPLAIN / EXPLAIN ANALYZE output', h:0.5, p:'V.High'},
+        {id:'sql-index-opt-7', name:'Why an index is ignored: function on column, leading %, type mismatch, low selectivity', h:0.45, p:'V.High'},
+        {id:'sql-index-opt-8', name:'Selectivity, cardinality & optimizer statistics', h:0.3, p:'High'},
+        {id:'sql-index-opt-9', name:'Writing a sargable query (rewrites that let indexes work)', h:0.2, p:'High'}
       ]},
-      {id:'sql-txn', name:'Transactions & Concurrency', hours:2.9, topics:[
-        {id:'sql-txn-1', name:'ACID properties in practice', h:0.4, p:'V.High'},
-        {id:'sql-txn-2', name:'Isolation levels: RU / RC / RR / Serializable', h:0.6, p:'V.High'},
-        {id:'sql-txn-3', name:'Dirty, non-repeatable & phantom reads', h:0.5, p:'V.High'},
-        {id:'sql-txn-4', name:'Locking: shared/exclusive, row vs table', h:0.45, p:'High'},
-        {id:'sql-txn-5', name:'Deadlocks — cause & avoidance', h:0.45, p:'High'},
-        {id:'sql-txn-6', name:'MVCC overview; optimistic vs pessimistic locking', h:0.5, p:'High'}
+      {id:'sql-txn', name:'6 · Transactions & Concurrency', hours:2.9, topics:[
+        {id:'sql-txn-1', name:'ACID in practice (atomicity → consistency → isolation → durability)', h:0.35, p:'V.High'},
+        {id:'sql-txn-2', name:'BEGIN / COMMIT / ROLLBACK and SAVEPOINT', h:0.3, p:'High'},
+        {id:'sql-txn-3', name:'Isolation levels: READ UNCOMMITTED → SERIALIZABLE', h:0.45, p:'V.High'},
+        {id:'sql-txn-4', name:'Read phenomena: dirty, non-repeatable & phantom reads', h:0.4, p:'V.High'},
+        {id:'sql-txn-5', name:'Locking: shared vs exclusive, row vs table', h:0.35, p:'High'},
+        {id:'sql-txn-6', name:'Deadlocks — how they form and how to avoid them', h:0.35, p:'High'},
+        {id:'sql-txn-7', name:'MVCC — how readers avoid blocking writers', h:0.35, p:'High'},
+        {id:'sql-txn-8', name:'Optimistic vs pessimistic concurrency control', h:0.35, p:'High'}
       ]},
-      {id:'sql-schema', name:'Schema Design & Normalization', hours:2.2, topics:[
-        {id:'sql-schema-1', name:'Normalization 1NF → 2NF → 3NF → BCNF', h:0.6, p:'V.High'},
-        {id:'sql-schema-2', name:'Denormalization trade-offs', h:0.4, p:'High'},
-        {id:'sql-schema-3', name:'Keys: primary, foreign, unique, composite', h:0.4, p:'High'},
-        {id:'sql-schema-4', name:'Constraints & referential integrity', h:0.35, p:'Medium'},
-        {id:'sql-schema-5', name:'OLTP vs OLAP modeling (star/snowflake)', h:0.45, p:'Medium'}
+      {id:'sql-schema', name:'7 · Schema Design & Normalization', hours:2.2, topics:[
+        {id:'sql-schema-1', name:'Keys: primary, foreign, unique, composite; surrogate vs natural', h:0.35, p:'V.High'},
+        {id:'sql-schema-2', name:'1NF & 2NF — atomic values, removing partial dependencies', h:0.35, p:'V.High'},
+        {id:'sql-schema-3', name:'3NF & BCNF — removing transitive dependencies', h:0.35, p:'V.High'},
+        {id:'sql-schema-4', name:'Denormalization — when to and the trade-offs', h:0.3, p:'High'},
+        {id:'sql-schema-5', name:'Constraints & referential integrity (ON DELETE / ON UPDATE)', h:0.3, p:'Medium'},
+        {id:'sql-schema-6', name:'Modeling 1-to-many & many-to-many (junction tables)', h:0.3, p:'High'},
+        {id:'sql-schema-7', name:'OLTP vs OLAP; star & snowflake schemas', h:0.25, p:'Medium'}
       ]},
-      {id:'sql-scale', name:'Scaling & Advanced', hours:2.3, topics:[
-        {id:'sql-scale-1', name:'Partitioning: range / list / hash', h:0.5, p:'High'},
-        {id:'sql-scale-2', name:'Sharding strategies & trade-offs', h:0.55, p:'V.High'},
-        {id:'sql-scale-3', name:'Replication & read scaling (primary/replica)', h:0.5, p:'High'},
-        {id:'sql-scale-4', name:'Materialized views & query caching', h:0.4, p:'Medium'},
-        {id:'sql-scale-5', name:'Bulk / batch operations & upserts', h:0.35, p:'Medium'}
+      {id:'sql-scale', name:'8 · Scaling & Advanced', hours:2.3, topics:[
+        {id:'sql-scale-1', name:'Vertical vs horizontal scaling of a database', h:0.3, p:'High'},
+        {id:'sql-scale-2', name:'Replication: primary/replica, read scaling, replica lag', h:0.45, p:'V.High'},
+        {id:'sql-scale-3', name:'Partitioning: range / list / hash', h:0.4, p:'High'},
+        {id:'sql-scale-4', name:'Sharding: shard keys, strategies, cross-shard joins', h:0.45, p:'V.High'},
+        {id:'sql-scale-5', name:'Materialized views & query/result caching', h:0.35, p:'Medium'},
+        {id:'sql-scale-6', name:'Bulk/batch writes, upserts & safe large deletes', h:0.35, p:'Medium'}
       ]},
-      {id:'sql-practice', name:'Interview Practice', hours:2.9, topics:[
-        {id:'sql-practice-1', name:'2nd / Nth highest salary; dedupe rows', h:0.5, p:'V.High'},
-        {id:'sql-practice-2', name:'Gaps-and-islands / consecutive sequences', h:0.55, p:'High'},
-        {id:'sql-practice-3', name:'Pivot via conditional aggregation', h:0.4, p:'High'},
-        {id:'sql-practice-4', name:'Running / cumulative metrics problems', h:0.45, p:'High'},
-        {id:'sql-practice-5', name:'Mock set 1 — mixed hard queries', h:0.5, p:'V.High'},
-        {id:'sql-practice-6', name:'Mock set 2 — optimization & schema Qs', h:0.5, p:'V.High'}
+      {id:'sql-practice', name:'9 · Interview Practice', hours:2.9, topics:[
+        {id:'sql-practice-1', name:'Nth-highest salary — three different approaches', h:0.35, p:'V.High'},
+        {id:'sql-practice-2', name:'Find and delete duplicate rows', h:0.3, p:'V.High'},
+        {id:'sql-practice-3', name:'Department-wise top earners (per-group Top-N)', h:0.35, p:'V.High'},
+        {id:'sql-practice-4', name:'Consecutive sequences / gaps-and-islands', h:0.4, p:'High'},
+        {id:'sql-practice-5', name:'Pivot & unpivot via conditional aggregation', h:0.35, p:'High'},
+        {id:'sql-practice-6', name:'Running & cumulative metrics (retention, MoM growth)', h:0.35, p:'High'},
+        {id:'sql-practice-7', name:'Mock set 1 — mixed query writing, timed', h:0.4, p:'V.High'},
+        {id:'sql-practice-8', name:'Mock set 2 — EXPLAIN tuning & schema-design questions', h:0.4, p:'V.High'}
       ]},
     ]
   },
