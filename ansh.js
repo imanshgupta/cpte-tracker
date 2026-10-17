@@ -336,7 +336,7 @@ const WEEKS = [
 
 function getDefaultTracks() {
   const t = {};
-  ['java','spring','sql','sd','cloud'].forEach(k => { t[k] = {}; });
+  ['java','spring','sql','sd','cloud','handson'].forEach(k => { t[k] = {}; });
   return t;
 }
 
@@ -457,6 +457,7 @@ const STREAMS = {
            group: g => g.id.indexOf('cl-saa-') === 0},
   clocal: {label: 'Docker / K8s',   badge: 'cloud',  track: 'cloud',
            group: g => g.id.indexOf('cl-saa-') !== 0},
+  handson:{label: 'Hands-on',       badge: 'hands-on', track: 'handson'},
 };
 
 // Day parity drives both alternating slots. Day 1 is an "even" day.
@@ -473,6 +474,7 @@ const HANDOVER = {
   sql:    ['sd', 'java', 'spring', 'dsa'],
   clocal: ['aws', 'sd', 'dsa'],
   dsa:    ['sd', 'java', 'spring', 'aws'],
+  handson:['spring', 'java', 'sd', 'aws', 'dsa'],
 };
 
 function isEvenDay(dateStr) {
@@ -488,7 +490,7 @@ function streamForSlot(day, slot) {
   if (slot === 'a') return 'dsa';                                    // every day
   if (slot === 'b') return even ? 'java' : 'spring';                 // alternating
   if (slot === 'd') return even ? 'aws' : 'sd';                      // alternating
-  if (slot === 'c') return ({sql: 'sql', sd: 'sd', cloud: 'clocal'})[day.rt] || null;
+  if (slot === 'c') return ({sql: 'sql', sd: 'sd', cloud: 'clocal', 'hands-on': 'handson'})[day.rt] || null;
   return null;
 }
 
@@ -1058,6 +1060,7 @@ function showTab(id, btn) {
   if (id === 'sql')    renderTrackTab('sql');
   if (id === 'sd')     renderTrackTab('sd');
   if (id === 'cloud')  renderTrackTab('cloud');
+  if (id === 'handson') renderTrackTab('handson');
   if (id === 'budget') renderBudget();
   if (id === 'rules')  renderRules();
 }
@@ -1065,7 +1068,7 @@ function showTab(id, btn) {
 // ─── TRACK BADGE ───────────────────────────────────────────────────────────
 
 function trackBadge(track, label) {
-  const map = {java:'java',spring:'spring',dsa:'dsa',sql:'sql',sd:'sd',cloud:'cloud',mock:'mock',rev:'rev','hands-on':'hands-on',behavioral:'behavioral',revision:'revision'};
+  const map = {java:'java',spring:'spring',dsa:'dsa',sql:'sql',sd:'sd',cloud:'cloud',mock:'mock',rev:'rev','hands-on':'hands-on',handson:'hands-on',behavioral:'behavioral',revision:'revision'};
   return `<span class="slot-badge ${map[track]||'revision'}">${label}</span>`;
 }
 
@@ -2387,6 +2390,89 @@ const TRACK_DEFS = {
         {id:'sql-practice-6', name:'Running & cumulative metrics (retention, MoM growth)', h:0.35, p:'High'},
         {id:'sql-practice-7', name:'Mock set 1 — mixed query writing, timed', h:0.4, p:'V.High'},
         {id:'sql-practice-8', name:'Mock set 2 — EXPLAIN tuning & schema-design questions', h:0.4, p:'V.High'}
+      ]},
+    ]
+  },
+
+  // Real hands-on coding tasks that Java/Spring interviewers (incl. banks like
+  // Morgan Stanley) actually make candidates perform — ordered to track the
+  // teaching arc so each exercise lands near the topic you're studying.
+  // Build every one in your own project; watching is not doing.
+  handson: {
+    name:'Hands-on', color:'#c4956a', totalHours:43.0,
+    groups:[
+      {id:'ho-core', name:'1 · Core Java & OOP (build-it warm-ups)', hours:2.5, topics:[
+        {id:'ho-core-1', name:'Immutable Money class: final class, private final fields, defensive copies, no setters', h:0.9, p:'V.High'},
+        {id:'ho-core-2', name:'Thread-safe Singleton three ways (eager, holder idiom, enum) — argue the trade-offs', h:0.8, p:'High'},
+        {id:'ho-core-3', name:'Builder pattern for a CacheConfig (capacity, TTL, eviction policy) with validation', h:0.8, p:'High'}
+      ]},
+      {id:'ho-collections', name:'2 · Collections, equals/hashCode & ordering', hours:4.4, topics:[
+        {id:'ho-collections-1', name:'Employee implements Comparable (salary, then name); verify TreeSet dedupe behaviour', h:0.8, p:'V.High'},
+        {id:'ho-collections-2', name:'Sort with Comparator.comparing().thenComparing().reversed() without touching the class', h:0.8, p:'V.High'},
+        {id:'ho-collections-3', name:'Break a HashSet by omitting hashCode, then fix with Objects.hash and prove it', h:0.8, p:'V.High'},
+        {id:'ho-collections-4', name:'First non-repeating character in a string (frequency map, two passes)', h:0.7, p:'High'},
+        {id:'ho-collections-5', name:'Reverse the words in a sentence in place ("Java is best" → "best is Java")', h:0.7, p:'High'},
+        {id:'ho-collections-6', name:'Anagram check in O(n) with frequency counting (no sorting)', h:0.6, p:'High'}
+      ]},
+      {id:'ho-generics', name:'3 · Generics', hours:1.6, topics:[
+        {id:'ho-generics-1', name:'Generic Pair<K,V> + generic max(List<T extends Comparable<T>>)', h:0.8, p:'High'},
+        {id:'ho-generics-2', name:'PECS in practice: copy(List<? super T> dst, List<? extends T> src)', h:0.8, p:'High'}
+      ]},
+      {id:'ho-streams', name:'4 · Lambdas & Streams', hours:4.4, topics:[
+        {id:'ho-streams-1', name:'Group employees by department, average salary per dept (groupingBy + averagingDouble)', h:0.9, p:'V.High'},
+        {id:'ho-streams-2', name:'Partition numbers odd/even (partitioningBy) — explain vs groupingBy', h:0.6, p:'High'},
+        {id:'ho-streams-3', name:'Flatten orders → all line-items with flatMap, then dedupe and count', h:0.8, p:'V.High'},
+        {id:'ho-streams-4', name:'Collect names per dept with mapping/counting downstream of groupingBy', h:0.8, p:'High'},
+        {id:'ho-streams-5', name:'Char-frequency + duplicate finder; top-N elements by frequency', h:0.7, p:'High'},
+        {id:'ho-streams-6', name:'Rewrite an imperative loop as a stream pipeline — discuss laziness & single-use', h:0.6, p:'Medium'}
+      ]},
+      {id:'ho-concurrency', name:'5 · Concurrency (bank favourites)', hours:6.5, topics:[
+        {id:'ho-concurrency-1', name:'Reproduce a race on a shared counter, fix with AtomicInteger/compareAndSet', h:0.9, p:'V.High'},
+        {id:'ho-concurrency-2', name:'Producer–consumer over a bounded ArrayBlockingQueue with poison-pill shutdown', h:1.0, p:'V.High'},
+        {id:'ho-concurrency-3', name:'Hand-roll a bounded buffer with ReentrantLock + two Conditions', h:1.0, p:'High'},
+        {id:'ho-concurrency-4', name:'Thread-safe LRU cache (LinkedHashMap access-order + lock), O(1) get/put', h:1.0, p:'V.High'},
+        {id:'ho-concurrency-5', name:'Token-bucket rate limiter with AtomicLong + CAS refill', h:0.9, p:'High'},
+        {id:'ho-concurrency-6', name:'Fixed thread pool: 10 tasks over 3 threads, observe queueing; Callable/Future.get()', h:0.8, p:'High'},
+        {id:'ho-concurrency-7', name:'CompletableFuture: 3 calls in parallel, combine, handle timeout & exception', h:0.9, p:'High'}
+      ]},
+      {id:'ho-jvm', name:'6 · JVM, Modern Java & I/O', hours:2.4, topics:[
+        {id:'ho-jvm-1', name:'Trigger & read a heap dump (jmap + Eclipse MAT); find a deliberate memory leak', h:0.9, p:'High'},
+        {id:'ho-jvm-2', name:'Model a domain with records + sealed interfaces + pattern-matching switch (17/21)', h:0.8, p:'High'},
+        {id:'ho-jvm-3', name:'Stream a large file line-by-line (Files.lines) without loading it into memory', h:0.7, p:'High'}
+      ]},
+      {id:'ho-spring-core', name:'7 · Spring Core: IoC / DI / AOP', hours:4.3, topics:[
+        {id:'ho-spring-core-1', name:'Wire 3 beans with constructor injection; resolve ambiguity with @Qualifier + @Primary', h:0.8, p:'V.High'},
+        {id:'ho-spring-core-2', name:'Pure Java @Configuration (no XML) for 3 beans; list the ApplicationContext beans', h:0.7, p:'High'},
+        {id:'ho-spring-core-3', name:'Custom BeanPostProcessor that logs/decorates bean creation', h:0.7, p:'Medium'},
+        {id:'ho-spring-core-4', name:'Bean scopes: prove singleton vs prototype with a counter; @Scope', h:0.6, p:'High'},
+        {id:'ho-spring-core-5', name:'Publish & listen to a custom ApplicationEvent; sync vs @Async listener', h:0.7, p:'Medium'},
+        {id:'ho-spring-core-6', name:'@Around AOP aspect for method timing; practise @Pointcut expressions', h:0.8, p:'High'}
+      ]},
+      {id:'ho-spring-data', name:'8 · Spring Data: JDBC / JPA / Hibernate / Tx', hours:5.2, topics:[
+        {id:'ho-spring-data-1', name:'CRUD repository with JdbcTemplate → convert to NamedParameterJdbcTemplate', h:0.8, p:'High'},
+        {id:'ho-spring-data-2', name:'Batch-insert 10k rows with batchUpdate; measure the speed-up', h:0.7, p:'Medium'},
+        {id:'ho-spring-data-3', name:'Map Author–Book @OneToMany; reproduce the N+1 with SQL logging on', h:0.9, p:'V.High'},
+        {id:'ho-spring-data-4', name:'Fix N+1 three ways: JOIN FETCH, @EntityGraph, @BatchSize — compare query counts', h:1.0, p:'V.High'},
+        {id:'ho-spring-data-5', name:'@Transactional propagation REQUIRED vs REQUIRES_NEW; rollback + lazy-outside-tx failure', h:1.0, p:'V.High'},
+        {id:'ho-spring-data-6', name:'Optimistic locking with @Version; simulate a concurrent-update conflict', h:0.8, p:'High'}
+      ]},
+      {id:'ho-spring-web', name:'9 · Spring MVC / REST APIs', hours:2.7, topics:[
+        {id:'ho-spring-web-1', name:'Paged Product REST API: entity + JpaRepository + Pageable (page/size/sort, capped)', h:1.1, p:'V.High'},
+        {id:'ho-spring-web-2', name:'DTOs + @Valid request validation; keep entities out of the response', h:0.8, p:'V.High'},
+        {id:'ho-spring-web-3', name:'Global error handling with @RestControllerAdvice; consistent JSON + status codes', h:0.8, p:'High'}
+      ]},
+      {id:'ho-spring-boot', name:'10 · Boot, Security, Microservices, Kafka, Testing', hours:5.7, topics:[
+        {id:'ho-spring-boot-1', name:'Secure the API with a JWT SecurityFilterChain; 401 on missing token; @PreAuthorize roles', h:1.1, p:'V.High'},
+        {id:'ho-spring-boot-2', name:'Dockerise the Boot app (multi-stage) + docker-compose with Postgres', h:0.9, p:'High'},
+        {id:'ho-spring-boot-3', name:'Resilience4j circuit breaker + retry on a flaky downstream call', h:0.9, p:'High'},
+        {id:'ho-spring-boot-4', name:'Kafka producer/consumer with error handling + DLQ (retry topic)', h:1.0, p:'High'},
+        {id:'ho-spring-boot-5', name:'Integration tests with Testcontainers (real Postgres); assert SQL count stays flat', h:0.9, p:'High'},
+        {id:'ho-spring-boot-6', name:'@WebMvcTest + MockMvc controller slice; Mockito service tests (~20 cases)', h:0.9, p:'V.High'}
+      ]},
+      {id:'ho-finance', name:'11 · Finance / ETL capstones', hours:3.3, topics:[
+        {id:'ho-finance-1', name:'Order-matching engine: price-time-priority order book with partial fills & cancels', h:1.2, p:'V.High'},
+        {id:'ho-finance-2', name:'CSV→DB ETL: stream a trades file, validate/transform, reject bad rows, chunked load', h:1.1, p:'V.High'},
+        {id:'ho-finance-3', name:'Trade-enrichment pipeline: join to reference data, compute P&L, aggregate positions by book', h:1.0, p:'High'}
       ]},
     ]
   },

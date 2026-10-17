@@ -261,15 +261,23 @@ t('marking on the track page shifts the next session (the "I already know this" 
      + now[0].id + ', expected ' + d3.split(',')[0]);
   console.log('        day 1 now starts at: ' + now[0].name.slice(0, 46));
 });
-t('ticking a prose slot (mock/hands-on) works and touches no queue', () => {
+t('ticking a prose slot (mock/revision) works and touches no queue', () => {
   R();
-  const day = f.findDay('2026-08-24').day;
-  eq(f.streamForSlot(day, 'c'), null, 'day 1 Slot C is prose');
-  f.toggleSlot('2026-08-24', 'c');
-  eq(global.__api.state.dailyChecks['2026-08-24'].c, true, 'checked');
-  ok(!global.__api.state.dailyLog['2026-08-24'] || !global.__api.state.dailyLog['2026-08-24'].c, 'nothing logged');
-  f.toggleSlot('2026-08-24', 'c');
-  ok(!global.__api.state.dailyChecks['2026-08-24'].c, 'unchecked cleanly');
+  const day = f.findDay('2026-08-27').day;      // rt:'revision' → genuine prose Slot C
+  eq(f.streamForSlot(day, 'c'), null, 'a revision Slot C is prose');
+  f.toggleSlot('2026-08-27', 'c');
+  eq(global.__api.state.dailyChecks['2026-08-27'].c, true, 'checked');
+  ok(!global.__api.state.dailyLog['2026-08-27'] || !global.__api.state.dailyLog['2026-08-27'].c, 'nothing logged');
+  f.toggleSlot('2026-08-27', 'c');
+  ok(!global.__api.state.dailyChecks['2026-08-27'].c, 'unchecked cleanly');
+});
+t('hands-on days are now a tracked stream in Slot C, not prose', () => {
+  R();
+  const day = f.findDay('2026-08-24').day;       // rt:'hands-on'
+  eq(f.streamForSlot(day, 'c'), 'handson', 'hands-on Slot C is stream-backed');
+  const units = f.streamUnits('handson');
+  ok(units.length >= 40, 'handson has a real backlog of exercises: ' + units.length);
+  ok(units.every(u => u.track === 'handson'), 'every handson unit belongs to the handson track');
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -342,7 +350,7 @@ t('every unscheduled item is accounted for (nothing vanishes)', () => {
 // ══════════════════════════════════════════════════════════════════════════
 S('6. UI — every tab renders');
 R();
-['today','weeks','gfg','java','spring','sql','sd','cloud','budget','rules'].forEach(id => {
+['today','weeks','gfg','java','spring','sql','sd','cloud','handson','budget','rules'].forEach(id => {
   t('showTab(' + id + ') renders non-empty HTML', () => {
     f.showTab(id, mkEl('btn'));
     const panel = getEl('panel-' + id);
@@ -456,7 +464,7 @@ t('marking every video in a topic reshuffles the plan immediately', () => {
 });
 
 S('10. UI — Track tabs');
-['java','spring','sql','sd','cloud'].forEach(tr => {
+['java','spring','sql','sd','cloud','handson'].forEach(tr => {
   t(tr + ' tab lists every group and topic', () => {
     R(); f.renderTrackTab(tr);
     const h = getEl('panel-' + tr).innerHTML;
@@ -680,7 +688,7 @@ t('baseline: finished work is on time, open work gets a planned date', () => {
 t('every open item is given a planned date at baseline', () => {
   resetLedger();
   const L = global.__api.state.baseline;
-  const missing = ['dsa','java','spring','sql','sd','aws','clocal']
+  const missing = ['dsa','java','spring','sql','sd','aws','clocal','handson']
     .reduce((n, st) => n + f.streamUnits(st).filter(u => !(f.unitKey(u) in L.planned)).length, 0);
   eq(missing, 0, 'items without a planned date');
 });
@@ -879,7 +887,7 @@ t('the flash banner always renders a date, and completion when all done', () => 
   ok(h.indexOf('target') >= 0, 'compared against the target date');
   // clear everything → completion state
   Object.keys(g.STREAMS).forEach(() => {});
-  ['java','spring','sql','sd','cloud'].forEach(tr =>
+  ['java','spring','sql','sd','cloud','handson'].forEach(tr =>
     g.TRACK_DEFS[tr].groups.forEach(grp => markTrackGroup(tr, grp.id)));
   g.GFG_MODULES.forEach(m => m.topics.forEach(t => markGfgVideos(t.id, t.v.length)));
   f.invalidatePlan();

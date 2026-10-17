@@ -43,21 +43,22 @@ Harness for `ansh.js` only: stubs DOM, `localStorage`, and `Date` (pinned to pla
 - **Live sync:** `syncToFirestore` writes the whole state to `ansh_tracker/{uid}` on every `saveState` (no debounce). `listenToFirestore` uses `onSnapshot`; own echoes are skipped by comparing `lastUpdated`. Remote state goes through `applyRemoteState` (same backfills as `loadState`).
 - **State:** `{version:'4.0', gfg:{topics:{id:{done:{idx:true}}}}, dailyChecks, dailyLog, tracks:{java,spring,sql,sd,cloud}, lastUpdated}`. Track topic states: `not-started | in-progress | done`. `migrateGfg` resets GFG progress for states older than `STATE_VERSION`; bump it only with a migration.
 - **Dynamic scheduler (core idea):** no day's workload is stored. `buildPlan()` recomputes everything from unfinished work on every render:
-  - Four daily slots: **A** DSA (GFG videos, every day), **B** Java/Spring alternating by day parity, **C** SQL/SD/Cloud per the day's `rt`, **D** AWS/System Design alternating.
+  - Four daily slots: **A** DSA (GFG videos, every day), **B** Java/Spring alternating by day parity, **C** SQL/SD/Cloud/**Hands-on** per the day's `rt`, **D** AWS/System Design alternating. (`rt:'hands-on'` days are a tracked `handson` stream — see below; `mock`/`behavioral`/`revision` Slot C days stay prose.)
   - `streamUnits(id)` = ordered backlog; `unitDone(u)` checks state; `distribute()` spreads remaining units over remaining sessions weighted by slot hours without reordering.
   - `HANDOVER` chain gives an exhausted stream's sessions to the next stream with work. `CAPPED` limits DSA (1.5h/day) and SQL (1h/day) to their real content.
   - `pace[stream].ratio` compares remaining density to the full-curriculum baseline (behind/ahead).
   - `assignmentFor()` shows the logged assignment once a slot is ticked (`dailyLog`), else the live projection. After any completion call `invalidatePlan()` / `refreshPlan()`.
-- **Data tables:** `GFG_MODULES`, `WEEKS` (authored day prose), `TRACK_DEFS` (java/spring/sql/sd/cloud groups → topics with `h` hours and priority). `TRACK_DEFS` is declared below the render code, so `init()` is called last — keep it there.
+- **Data tables:** `GFG_MODULES`, `WEEKS` (authored day prose), `TRACK_DEFS` (java/spring/sql/sd/cloud/**handson** groups → topics with `h` hours and priority). `TRACK_DEFS` is declared below the render code, so `init()` is called last — keep it there.
+- **Hands-on stream (`handson`):** a tracked stream of real interview coding exercises (Core Java → Collections/Comparator → Generics → Streams → Concurrency → JVM → Spring Core/Data/Web/Boot → Finance/ETL capstones), ordered to follow the Java/Spring teaching arc. Lives in Slot C on `rt:'hands-on'` days via `streamForSlot` and `STREAMS.handson`; `TRACK_DEFS.handson` is topic-based (no `courseUrl`), ~43h over 51 exercises, surfaced on its own **Hands-on** tab. Changing the Java/Spring order? Re-order these groups to keep them aligned.
 - **Plan ledger (planned vs actual):** `STATE.baseline` freezes the planned date of every then-open item (set from today via `ensureLedger`/`createBaseline`; `resetBaseline` forgives the past and restarts). `STATE.doneOn` records the actual completion date of each item (`'pre'` = finished before the baseline, i.e. on time), kept in sync on every save by `reconcileDoneOn`. `ledgerOf(unit)` gives planned/doneOn/days-late for one item; items open past their planned date count as late.
 - **Speed & expected completion:** `streamLedger(stream)` measures hours done per day over a rolling `SPEED_WINDOW` (14 days) and projects a finish date — using real speed when there is any, otherwise the plan's own pace, so the date always resolves and marches forward on idle days and pulls back when you go faster. `programFinish()` = the latest stream ETA (everything runs in parallel), shown in the always-on flashing `#finish-flash` header banner and at the top of the Progress tab. `SLIP_TOL` (2 days) absorbs rounding noise in the behind/ahead flags.
-- **Tabs:** Today, **Progress** (baseline, per-stream speed/ETA/days-late, overdue list, planned-vs-actual history), Weeks, GFG Tracker, Java, Spring, SQL/DB, System Design, Cloud, Budget, Daily Rules. The Today tab's Pace card and per-row chips are ledger-driven.
+- **Tabs:** Today, **Progress** (baseline, per-stream speed/ETA/days-late, overdue list, planned-vs-actual history), Weeks, GFG Tracker, Java, Spring, SQL/DB, System Design, Cloud, **Hands-on**, Budget, Daily Rules. The Today tab's Pace card and per-row chips are ledger-driven.
 
 ## Service worker and cache busting
 
 `service-worker.js` is cache-first and pre-caches an explicit `FILES_TO_CACHE` list.
 
-- **Every deploy that changes a cached file:** bump `CACHE_NAME` (currently `tracker-v28`) or clients keep serving stale copies.
+- **Every deploy that changes a cached file:** bump `CACHE_NAME` (currently `tracker-v29`) or clients keep serving stale copies.
 - **New static file:** add it to `FILES_TO_CACHE` as well.
 - Install prompt: `ansh.js` shows a floating "Install App" button on `beforeinstallprompt` (Chrome only; iOS uses Add to Home Screen).
 
