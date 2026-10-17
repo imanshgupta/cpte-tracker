@@ -60,8 +60,6 @@ body::before{content:"";position:fixed;inset:0;background:radial-gradient(circle
 
 /* header */
 .app-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap}
-.back-link{font-size:11px;color:var(--dim);text-decoration:none;letter-spacing:0.04em;transition:color 0.15s}
-.back-link:hover{color:var(--muted)}
 .header-title{font-size:17px;font-weight:700;color:var(--text);letter-spacing:-0.01em}
 .header-sub{font-size:11px;color:var(--dim);margin-top:1px;font-family:'JetBrains Mono',monospace}
 .header-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
@@ -293,6 +291,29 @@ body::before{content:"";position:fixed;inset:0;background:radial-gradient(circle
   .tr-btns{width:100%;margin-top:4px}
 }
 
+/* plan ledger */
+.late{color:#e63946}.early{color:#6a994e}
+/* always-on program finish flash */
+.finish-flash:empty{display:none}
+.finish-flash{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:center;gap:8px;text-align:center;margin:-4px 0 12px;padding:9px 12px;border-radius:8px;background:var(--surface);border:1px solid var(--line)}
+.finish-flash .ff-k{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.08em;color:var(--dim);text-transform:uppercase}
+.finish-flash .ff-date{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;animation:finishPulse 1.7s ease-in-out infinite}
+.finish-flash .ff-late{color:#e63946}.finish-flash .ff-early{color:#6a994e}.finish-flash .ff-ontrack{color:var(--accent)}
+.finish-flash .ff-done{color:#6a994e;font-weight:700;font-family:'JetBrains Mono',monospace;animation:finishPulse 1.7s ease-in-out infinite}
+@keyframes finishPulse{0%,100%{opacity:1}50%{opacity:0.45}}
+.behind-card{border-left:3px solid #e63946}.behind-card.ok{border-left-color:#6a994e}
+.late-chip{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10.5px;padding:2px 8px;border-radius:10px;margin:0 6px 4px 0;background:rgba(230,57,70,0.12);color:#e85a68;border:1px solid rgba(230,57,70,0.25)}
+.pg-status{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:var(--muted)}
+.pg-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px 8px}
+.pg-k{font-size:9.5px;font-family:'JetBrains Mono',monospace;letter-spacing:0.08em;text-transform:uppercase;color:var(--dim);margin-bottom:2px}
+.pg-v{font-size:13px;font-weight:600;color:var(--text)}
+.pg-line{display:flex;gap:10px;align-items:baseline;padding:4px 0;font-size:12.5px;border-bottom:1px solid var(--line2)}
+.pg-line:last-child{border-bottom:none}
+.pg-line>span:first-child{flex:1;min-width:0}
+.pg-line .late,.pg-line .early{font-family:'JetBrains Mono',monospace;font-size:11px;white-space:nowrap}
+.pg-dim{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--dim);white-space:nowrap}
+@media(max-width:600px){.pg-grid{grid-template-columns:repeat(2,1fr)}.pg-line{flex-wrap:wrap}}
+
 /* Auth gate */
 #loading-screen{position:fixed;inset:0;z-index:100;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
 .loading-dots{display:flex;gap:7px}
@@ -327,7 +348,6 @@ body::before{content:"";position:fixed;inset:0;background:radial-gradient(circle
 <div id="app" class="wrap" style="display:none">
 
 <div class="app-header">
-  <a href="index.html" class="back-link">← Trackers</a>
   <div>
     <div class="header-title">Ansh — Java Interview Prep</div>
     <div class="header-sub">193 days · 1,158h · Walmart / PayPal / Swiggy</div>
@@ -338,9 +358,12 @@ body::before{content:"";position:fixed;inset:0;background:radial-gradient(circle
   </div>
 </div>
 
+<div class="finish-flash" id="finish-flash"></div>
+
 <div class="tab-wrap">
   <div class="tab-bar">
     <button class="tb active" onclick="showTab('today',this)">Today</button>
+    <button class="tb" onclick="showTab('progress',this)">Progress</button>
     <button class="tb" onclick="showTab('weeks',this)">Weeks</button>
     <button class="tb" onclick="showTab('gfg',this)">GFG Tracker</button>
     <button class="tb" onclick="showTab('java',this)">Java</button>
@@ -354,6 +377,7 @@ body::before{content:"";position:fixed;inset:0;background:radial-gradient(circle
 </div>
 
 <div id="panel-today"  class="panel active"></div>
+<div id="panel-progress" class="panel"></div>
 <div id="panel-weeks"  class="panel"></div>
 <div id="panel-gfg"   class="panel"></div>
 <div id="panel-java"  class="panel"></div>

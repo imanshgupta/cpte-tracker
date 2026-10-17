@@ -49,7 +49,10 @@ const code = fs.readFileSync('ansh.js', 'utf8') + `
   f:{ getPlan, invalidatePlan, assignmentFor, streamForSlot, slotMeta, toggleSlot, setTrackTopic,
       toggleModule, toggleTopic, toggleVideo, renderToday, renderWeeks, showWeek, renderGFG, renderTrackTab, renderBudget,
       renderRules, renderPace, renderDayContent, showTab, findDay, daysBetween, todayStr,
-      isEvenDay, streamUnits, unitDone, renderWeekStrip, fmtH, resetAll, loadState, getDefaultState, courseUrlFor },
+      isEvenDay, streamUnits, unitDone, renderWeekStrip, fmtH, resetAll, loadState, getDefaultState, courseUrlFor,
+      ensureLedger, createBaseline, resetBaseline, ledgerOf, streamLedger, lateItems, recentDone, renderProgress,
+      ledgerChip, gfgTopicChip, renderLateBanner, unitKey, addDays,
+      programFinish, renderFinishFlash, slipFlag },
   get state(){ return STATE; },
 };`;
 eval(code);
@@ -184,9 +187,10 @@ t('AWS empty → System Design takes Slot D too, plus DSA\'s spare Slot A capaci
   g.TRACK_DEFS.cloud.groups.forEach(grp => { if (grp.id.indexOf('cl-saa-') === 0) markTrackGroup('cloud', grp.id); });
   f.invalidatePlan();
   // 126 baseline + 94 from AWS's Slot D + 124 Slot A sessions DSA doesn't
-  // need at ~1.5h/day (188 total minus its own ~64) + 12 Slot C sessions
-  // SQL doesn't need at 1h/day, both first in their own handover chains.
-  eq(f.getPlan().pace.sd.sessions, 356, 'SD gets its 126 + 94 AWS + 124 spare DSA + 12 spare SQL slots');
+  // need at ~1.5h/day (188 total minus its own ~64) + 2 Slot C sessions
+  // SQL doesn't need (23.9h at 1h/day = 24 of its 26 days), both first in
+  // their own handover chains.
+  eq(f.getPlan().pace.sd.sessions, 346, 'SD gets its 126 + 94 AWS + 124 spare DSA + 2 spare SQL slots');
   const m = f.slotMeta(f.findDay('2026-08-24').day, 'd');
   ok(m.label.indexOf('System Design') === 0 && m.label.indexOf('↺') > 0, 'label: ' + m.label);
 });
@@ -358,7 +362,7 @@ t('pre-plan preview shows a countdown and no tick boxes', () => {
   ok(h.indexOf('Topics to be added') < 0, 'no leftover placeholder');
 });
 t('active day shows four slots, pace card and week strip', () => {
-  global.__api.setToday(2026, 8, 24); f.renderToday();
+  global.__api.setToday(2026, 8, 24); f.ensureLedger(); f.renderToday();
   const h = getEl('panel-today').innerHTML;
   eq((h.match(/slot-block/g) || []).length, 4, 'four slot blocks');
   eq((h.match(/Mark as done/g) || []).length, 4, 'four tick rows');
@@ -461,10 +465,11 @@ S('10. UI — Track tabs');
     eq((h.match(/class="track-section"/g) || []).length, g.TRACK_DEFS[tr].groups.length, tr + ' groups');
   });
 });
-t('course links: Spring and SQL topics link out, Java does not', () => {
+t('course links: Spring topics link out; Java and the rebuilt SQL track do not', () => {
   R(); f.renderTrackTab('spring'); f.renderTrackTab('sql'); f.renderTrackTab('java');
   ok(getEl('panel-spring').innerHTML.indexOf('durgasoftonline.com') > 0, 'Spring links to durgasoftonline');
-  ok(getEl('panel-sql').innerHTML.indexOf('udemy.com') > 0, 'SQL links to Udemy');
+  eq(f.courseUrlFor('sql', 'sql-joins'), null, 'rebuilt SQL track is topic-based, no single course link');
+  ok(getEl('panel-sql').innerHTML.indexOf('class="topic-link"') < 0, 'SQL rows are plain, not links');
   ok(getEl('panel-java').innerHTML.indexOf('class="topic-link"') < 0, 'Java has no course link (none given)');
 });
 t('course links: only the AWS SAA groups in Cloud link out, Docker/K8s do not', () => {
@@ -534,24 +539,29 @@ t('rules documents 4 slots, handover and no stale weekday rotation', () => {
   ok(h.toLowerCase().indexOf('genpact') < 0, 'genpact removed');
 });
 
-S('12. Pace card');
-t('reads "on plan" at the start, per stream', () => {
+S('12. Pace card (ledger-driven)');
+t('empty without a baseline; on-plan header on baseline day', () => {
   R(); global.__api.setToday(2026, 8, 24);
+  eq(f.renderPace(), '', 'no baseline → no card');
+  f.ensureLedger();
   const h = f.renderPace();
-  ok((h.match(/on plan/g) || []).length >= 5, 'most streams on plan');
+  ok(h.indexOf('Pace · on plan') > 0, 'green on-plan header on day 1');
   ok(h.indexOf('pace-flag behind') < 0, 'nothing behind on day 1');
+  ok(h.indexOf('Progress tab') > 0, 'links to the Progress tab');
 });
-t('turns red when behind', () => {
+t('turns red and names the days behind once work is overdue', () => {
+  R(); global.__api.setToday(2026, 8, 24); f.ensureLedger();
   global.__api.setToday(2026, 11, 23);
   const h = f.renderPace();
   ok(h.indexOf('pace-flag behind') > 0, 'behind flag present');
-  ok(/\d\.\d× pace/.test(h), 'ratio shown');
+  ok(/\d+d behind/.test(h), 'shows how many days behind');
+  ok(/overdue/.test(h), 'header counts overdue items');
 });
-t('turns green when the backlog is cleared', () => {
-  R(); global.__api.setToday(2026, 8, 24);
+t('a cleared stream reads complete', () => {
+  R(); global.__api.setToday(2026, 8, 24); f.ensureLedger();
   g.TRACK_DEFS.sql.groups.forEach(grp => markTrackGroup('sql', grp.id));
   f.invalidatePlan();
-  ok(f.renderPace().indexOf('✓ clear') > 0, 'clear flag present');
+  ok(f.renderPace().indexOf('✓ complete') > 0, 'complete flag present');
 });
 
 S('13. Persistence');
@@ -647,6 +657,236 @@ t('pulling up never drops the tail of a stream', () => {
   const all = []; sessionsFor('aws').forEach(s => s.units.forEach(u => all.push(u.id)));
   eq(all[all.length - 1], lastBefore, 'final lesson still scheduled');
 });
+
+
+// ══════════════════════════════════════════════════════════════════════════
+S('9. Plan ledger — planned vs actual, days late, speed & ETA');
+const grpOf = (track, id) => g.TRACK_DEFS[track].groups.find(x => x.topics.some(tp => tp.id === id)).id;
+const doneTopic = (track, id) => f.setTrackTopic(track, id, 'done', grpOf(track, id), true);
+const resetLedger = () => { R(); global.__api.setToday(2026, 8, 24); f.ensureLedger(); };
+
+t('baseline: finished work is on time, open work gets a planned date', () => {
+  R(); global.__api.setToday(2026, 8, 24);
+  markTrackGroup('java', 'java-a');
+  f.ensureLedger();
+  const L = global.__api.state.baseline;
+  eq(L.created, '2026-08-24', 'baseline date');
+  const done0 = f.streamUnits('java')[0], open0 = f.streamUnits('java').find(u => !f.unitDone(u));
+  eq(global.__api.state.doneOn[f.unitKey(done0)], 'pre', 'pre-baseline completion');
+  ok(f.ledgerOf(done0).pre && f.ledgerOf(done0).late === 0, 'pre-baseline item is on time');
+  ok(L.planned[f.unitKey(open0)] >= '2026-08-24', 'open item has a planned date');
+  ok(!(f.unitKey(done0) in L.planned), 'done item has no planned date');
+});
+t('every open item is given a planned date at baseline', () => {
+  resetLedger();
+  const L = global.__api.state.baseline;
+  const missing = ['dsa','java','spring','sql','sd','aws','clocal']
+    .reduce((n, st) => n + f.streamUnits(st).filter(u => !(f.unitKey(u) in L.planned)).length, 0);
+  eq(missing, 0, 'items without a planned date');
+});
+t('a miss shows as late starting tomorrow, growing by a day each day', () => {
+  resetLedger();
+  const u = f.streamUnits('java')[0], k = f.unitKey(u);
+  eq(global.__api.state.baseline.planned[k], '2026-08-24', 'planned for day 1');
+  eq(f.ledgerOf(u).late, 0, 'not late on the day itself');
+  global.__api.setToday(2026, 8, 25); eq(f.ledgerOf(u).late, 1, 'next day');
+  global.__api.setToday(2026, 8, 28); eq(f.ledgerOf(u).late, 4, 'four days on');
+});
+t('completing late records planned vs actual dates', () => {
+  resetLedger();
+  const u = f.streamUnits('java')[0];
+  global.__api.setToday(2026, 8, 27);
+  doneTopic('java', u.id);
+  const e = f.ledgerOf(u);
+  ok(e.done && !e.pre, 'recorded as a real completion');
+  eq(e.doneOn, '2026-08-27'); eq(e.planned, '2026-08-24'); eq(e.late, 3, 'days late');
+  eq(global.__api.state.doneOn[f.unitKey(u)], '2026-08-27');
+});
+t('finishing early is a negative lateness', () => {
+  resetLedger();
+  const later = f.streamUnits('java')[40];
+  const planned = global.__api.state.baseline.planned[f.unitKey(later)];
+  ok(planned > '2026-08-24', 'item 40 is planned for later, got ' + planned);
+  doneTopic('java', later.id);
+  ok(f.ledgerOf(later).late < 0, 'early completion should be negative, got ' + f.ledgerOf(later).late);
+});
+t('unticking removes the completion date and the item can be late again', () => {
+  resetLedger();
+  const u = f.streamUnits('java')[0];
+  doneTopic('java', u.id);
+  ok(global.__api.state.doneOn[f.unitKey(u)], 'recorded');
+  f.setTrackTopic('java', u.id, 'not-started', grpOf('java', u.id), true);
+  ok(!global.__api.state.doneOn[f.unitKey(u)], 'cleared');
+  global.__api.setToday(2026, 8, 26);
+  eq(f.ledgerOf(u).late, 2, 'late again');
+});
+t('GFG video ticks and slot ticks are recorded too', () => {
+  resetLedger();
+  f.toggleVideo('basics-dsa-intro', 1);
+  const v = f.ledgerOf({kind:'gfg', topic:'basics-dsa-intro', idx:1});
+  ok(v.done && v.doneOn === '2026-08-24', 'video done today');
+  const day = f.findDay('2026-08-24').day;
+  const a = f.assignmentFor('2026-08-24', 'b');
+  f.toggleSlot('2026-08-24', 'b');
+  a.units.forEach(u => eq(global.__api.state.doneOn[f.unitKey(u)], '2026-08-24', u.name));
+  f.toggleSlot('2026-08-24', 'b');
+  a.units.forEach(u => ok(!global.__api.state.doneOn[f.unitKey(u)], 'untick clears ' + u.name));
+});
+t('speed: hours done per day over the window, with a projected finish', () => {
+  resetLedger();
+  const us = f.streamUnits('java').slice(0, 6);
+  us.forEach(u => doneTopic('java', u.id));
+  const h = us.reduce((a, u) => a + u.w, 0);
+  const r = f.streamLedger('java');
+  ok(Math.abs(r.windowW - h) < 1e-9, 'window hours');
+  eq(r.days, 1, 'one day of history');
+  ok(Math.abs(r.rate - h) < 1e-9, 'rate = hours / 1 day');
+  ok(r.projected && r.projected > '2026-08-24', 'has an ETA: ' + r.projected);
+  ok(r.plannedFinish && r.plannedRate > 0, 'has a planned finish and rate');
+  ok(typeof r.slip === 'number', 'slip computed');
+});
+t('ETA always resolves (plan pace until there is real speed) and speeds up with work', () => {
+  resetLedger();
+  const base = f.streamLedger('java');
+  ok(base.projected, 'no progress still yields a date (plan pace)');
+  ok(!base.liveSpeed, 'flagged as plan-based, not live speed');
+  ok(Math.abs(f.daysBetween(base.projected, base.plannedFinish)) <= 3, 'plan-based ETA ≈ planned finish');
+  f.streamUnits('java').slice(0, 5).forEach(u => doneTopic('java', u.id));
+  const slow = f.streamLedger('java');
+  ok(slow.liveSpeed, 'now live-speed based');
+  f.streamUnits('java').slice(5, 40).forEach(u => doneTopic('java', u.id));
+  const fast = f.streamLedger('java').projected;
+  ok(fast < slow.projected, 'ETA ' + slow.projected + ' → ' + fast);
+  console.log('        Java ETA ' + slow.projected + ' → ' + fast + ' (plan ' + f.streamLedger('java').plannedFinish + ')');
+});
+t('an idle stream\'s ETA marches forward a day at a time', () => {
+  resetLedger();
+  const d0 = f.streamLedger('java').projected;
+  global.__api.setToday(2026, 8, 25);
+  const d1 = f.streamLedger('java').projected;
+  global.__api.setToday(2026, 8, 28);
+  const d3 = f.streamLedger('java').projected;
+  ok(d1 > d0 && d3 > d1, 'idle ETA slides later: ' + d0 + ' → ' + d1 + ' → ' + d3);
+});
+t('speed uses a rolling window, so old bursts age out', () => {
+  resetLedger();
+  f.streamUnits('java').slice(0, 10).forEach(u => doneTopic('java', u.id));
+  global.__api.setToday(2026, 9, 30);   // well past the 14-day window
+  const r = f.streamLedger('java');
+  eq(r.windowW, 0, 'completions older than the window do not count');
+  ok(r.doneW > 0, 'but they still count as done since baseline');
+});
+t('overdue items are listed per stream, worst first', () => {
+  resetLedger();
+  global.__api.setToday(2026, 8, 30);
+  const li = f.lateItems('java', '2026-08-30');
+  ok(li.length > 0, 'something is overdue');
+  for (let i = 1; i < li.length; i++) ok(li[i-1].late >= li[i].late, 'sorted by lateness');
+  eq(f.streamLedger('java').late, li.length, 'count matches (java items stand alone)');
+  ok(f.lateItems('dsa', '2026-08-30')[0].n >= 1, 'DSA rolls videos up per topic');
+});
+t('recently completed shows planned vs actual', () => {
+  resetLedger();
+  const u = f.streamUnits('spring')[0];
+  global.__api.setToday(2026, 8, 26);
+  doneTopic('spring', u.id);
+  const rd = f.recentDone(5);
+  eq(rd.length, 1); eq(rd[0].name, u.name); eq(rd[0].doneOn, '2026-08-26');
+});
+t('re-baselining forgives the past and restarts the counters', () => {
+  resetLedger();
+  global.__api.setToday(2026, 8, 30);
+  ok(f.streamLedger('java').late > 0, 'late before');
+  f.resetBaseline();
+  eq(f.streamLedger('java').late, 0, 'nothing late right after re-baseline');
+  eq(global.__api.state.baseline.created, '2026-08-30');
+  global.__api.setToday(2026, 8, 31);
+  ok(f.streamLedger('java').late > 0, 'and it starts counting again from tomorrow');
+});
+t('state shape is safe for old saves (no baseline) and for resetAll', () => {
+  R();
+  eq(global.__api.state.baseline, null, 'fresh state has no baseline');
+  eq(f.ledgerOf(f.streamUnits('java')[0]), null, 'ledgerOf is inert without one');
+  eq(f.ledgerChip({kind:'track', track:'java', id:f.streamUnits('java')[0].id}), '', 'no chip');
+  global.__api.setToday(2026, 8, 24); f.ensureLedger();
+  f.resetAll();
+  ok(global.__api.state.baseline, 'resetAll re-establishes a baseline');
+  eq(Object.keys(global.__api.state.baseline.planned).length > 0, true, 'with a full plan');
+});
+t('Progress tab, Today banner, track rows and GFG chips all render', () => {
+  resetLedger();
+  global.__api.setToday(2026, 8, 27);
+  f.renderProgress();
+  const html = getEl('panel-progress').innerHTML;
+  ok(html.indexOf('Speed') >= 0 && html.indexOf('Expected finish') >= 0, 'speed/ETA section');
+  ok(html.indexOf('d late') >= 0, 'overdue section');
+  ok(f.renderLateBanner().indexOf('Behind plan') >= 0, 'banner flags lateness');
+  f.renderTrackTab('java');
+  ok(getEl('panel-java').innerHTML.indexOf('d late') >= 0, 'track rows show days late');
+  const topic = g.GFG_MODULES[0].topics[0];
+  ok(f.gfgTopicChip(topic).indexOf('late') >= 0, 'GFG topic shows days late');
+  global.__api.setToday(2026, 8, 24);
+  ok(f.renderLateBanner().indexOf('On plan') >= 0, 'on plan on baseline day');
+});
+global.__api.setToday(2026, 8, 24);
+
+// ══════════════════════════════════════════════════════════════════════════
+S('14. Program finish — one live date for everything');
+t('program finish = the latest stream ETA, always a real date', () => {
+  resetLedger();
+  const pf = f.programFinish();
+  ok(pf.anyOpen, 'work remains at the start');
+  ok(pf.date, 'a concrete finish date');
+  const latest = Object.keys(g.STREAMS)
+    .map(st => f.streamLedger(st).projected).filter(Boolean).sort().slice(-1)[0];
+  eq(pf.date, latest, 'equals the latest per-stream ETA');
+  ok(pf.days > 0, 'days-from-today counter set');
+});
+t('the whole-program date slides forward while nothing gets done', () => {
+  resetLedger();
+  const a = f.programFinish('2026-08-24').date;
+  const b = f.programFinish('2026-09-10').date;
+  ok(b > a, 'idle program ETA moves later: ' + a + ' → ' + b);
+});
+t('a faster recent pace pulls both the track and program dates earlier', () => {
+  resetLedger();
+  // light pace: a few java topics on day 1
+  f.streamUnits('java').slice(0, 4).forEach(u => doneTopic('java', u.id));
+  const slowJava = f.streamLedger('java').projected;
+  const slowProg = f.programFinish().date;
+  // heavy pace: clear a big chunk more, same day
+  f.streamUnits('java').slice(4, 60).forEach(u => doneTopic('java', u.id));
+  const fastJava = f.streamLedger('java').projected;
+  const fastProg = f.programFinish().date;
+  ok(fastJava < slowJava, 'Java ETA pulled earlier: ' + slowJava + ' → ' + fastJava);
+  ok(fastProg <= slowProg, 'program ETA not pushed later by faster work: ' + slowProg + ' → ' + fastProg);
+});
+t('finishing a whole track drops it out of the program finish', () => {
+  resetLedger();
+  const withSql = f.programFinish();
+  g.TRACK_DEFS.sql.groups.forEach(grp => markTrackGroup('sql', grp.id));
+  f.invalidatePlan();
+  const sqlRow = f.programFinish().perStream.find(p => p.st === 'sql');
+  eq(sqlRow.open, 0, 'SQL now complete');
+  eq(sqlRow.projected, null, 'and contributes no ETA');
+});
+t('the flash banner always renders a date, and completion when all done', () => {
+  resetLedger();
+  f.renderFinishFlash();
+  const h = getEl('finish-flash').innerHTML;
+  ok(h.indexOf('ALL TRACKS DONE BY') >= 0, 'labelled banner');
+  ok(/\d{4}/.test(h), 'carries a year');
+  ok(h.indexOf('target') >= 0, 'compared against the target date');
+  // clear everything → completion state
+  Object.keys(g.STREAMS).forEach(() => {});
+  ['java','spring','sql','sd','cloud'].forEach(tr =>
+    g.TRACK_DEFS[tr].groups.forEach(grp => markTrackGroup(tr, grp.id)));
+  g.GFG_MODULES.forEach(m => m.topics.forEach(t => markGfgVideos(t.id, t.v.length)));
+  f.invalidatePlan();
+  f.renderFinishFlash();
+  ok(getEl('finish-flash').innerHTML.indexOf('complete') >= 0, 'shows complete when nothing is open');
+});
+global.__api.setToday(2026, 8, 24);
 
 // ══════════════════════════════════════════════════════════════════════════
 console.log('\n' + '═'.repeat(70));

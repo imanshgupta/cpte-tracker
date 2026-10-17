@@ -347,7 +347,7 @@ function getDefaultState() {
   GFG_MODULES.forEach(m => m.topics.forEach(t => {
     topics[t.id] = {done:{}};
   }));
-  return {version:STATE_VERSION, gfg:{topics}, dailyChecks:{}, dailyLog:{}, tracks:getDefaultTracks()};
+  return {version:STATE_VERSION, gfg:{topics}, dailyChecks:{}, dailyLog:{}, tracks:getDefaultTracks(), baseline:null, doneOn:{}};
 }
 
 // Older states (version < 4.0) stored GFG progress as vc/pc counters, which
@@ -370,6 +370,8 @@ function loadState() {
     const s = JSON.parse(raw);
     if (!s.dailyChecks) s.dailyChecks = {};
     if (!s.dailyLog) s.dailyLog = {};
+    if (!s.doneOn) s.doneOn = {};
+    if (!s.baseline) s.baseline = null;
     if (!s.gfg) { const d = getDefaultState(); s.gfg = d.gfg; }
     // backfill per-track keys too — an older state may carry tracks:{} and
     // leave STATE.tracks.java undefined
@@ -380,6 +382,7 @@ function loadState() {
 }
 
 function saveState(s) {
+  reconcileDoneOn(s);
   s.lastUpdated = new Date().toISOString();
   try { localStorage.setItem(activeStorageKey(), JSON.stringify(s)); } catch(e) {}
   syncToFirestore(s);
@@ -684,12 +687,353 @@ function refreshPlan() {
   if (document.getElementById('panel-today')) renderToday();
   if (SHOWN_WEEK !== null && document.getElementById('week-detail')) showWeek(SHOWN_WEEK);
   if (CURRENT_TAB === 'gfg') renderGFG();
+  if (CURRENT_TAB === 'progress') renderProgress();
   if (TRACK_DEFS[CURRENT_TAB]) renderTrackTab(CURRENT_TAB);
+  renderFinishFlash();
 }
 
 function fmtH(h) {
   if (h >= 1) return (Math.round(h * 10) / 10) + 'h';
   return Math.round(h * 60) + 'm';
+}
+
+
+// ─── PLAN LEDGER ───────────────────────────────────────────────────────────
+// The scheduler above is deliberately amnesiac: it re-plans from whatever is
+// left, so on its own it can never say "this was due on the 12th". The ledger
+// adds the memory it lacks, in two small maps kept inside STATE (and so synced
+// like everything else):
+//
+//   baseline.planned[key] — the date each unfinished item was *planned for*,
+//                           frozen when the baseline was set.
+//   doneOn[key]           — the date each item was *actually* ticked off, or
+//                           'pre' for items already finished when the baseline
+//                           was set (those count as on time, by definition).
+//
+// Lateness is then just the gap between the two. The baseline is set from
+// today: today's own sessions are on time, anything still open tomorrow is
+// 1 day late, and so on. "Re-baseline" forgives the past and starts again.
+
+const SPEED_WINDOW = 14;   // days of history behind the speed / ETA numbers
+
+function ymd(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function addDays(dateStr, n) {
+  const [y,mo,d] = dateStr.split('-').map(Number);
+  return ymd(new Date(y, mo-1, d+n));
+}
+function fmtShort(dateStr) {
+  const [y,mo,d] = dateStr.split('-').map(Number);
+  return new Date(y, mo-1, d).toLocaleDateString('en-US', {month:'short', day:'numeric'});
+}
+
+function unitKey(u) { return u.kind === 'gfg' ? 'g:'+u.topic+':'+u.idx : u.track+':'+u.id; }
+
+function allUnits() {
+  const out = [];
+  Object.keys(STREAMS).forEach(st => streamUnits(st).forEach(u => out.push(u)));
+  return out;
+}
+
+// Keep doneOn in step with reality. Runs on every save, so every way of
+// completing (or un-completing) something — slot tick, track page, GFG video,
+// a remote device — gets its date recorded without each path knowing about it.
+function reconcileDoneOn(s) {
+  if (!s || !s.baseline) return;
+  const today = todayStr(), d = s.doneOn = s.doneOn || {};
+  allUnits().forEach(u => {
+    const k = unitKey(u), done = unitDone(u);
+    if (done && !d[k]) d[k] = today;
+    else if (!done && d[k]) delete d[k];
+  });
+}
+
+function createBaseline() {
+  invalidatePlan();
+  const plan = getPlan();
+  const planned = {};
+  Object.keys(plan.byDate).forEach(date => {
+    ['a','b','c','d'].forEach(sl => {
+      const a = plan.byDate[date][sl];
+      if (a) a.units.forEach(u => { planned[unitKey(u)] = date; });
+    });
+  });
+  const doneOn = {};
+  allUnits().forEach(u => { if (unitDone(u)) doneOn[unitKey(u)] = 'pre'; });
+  STATE.baseline = {created: todayStr(), planned};
+  STATE.doneOn = doneOn;
+}
+
+function ensureLedger() {
+  if (STATE.baseline) return;
+  createBaseline();
+  saveState(STATE);
+}
+
+function resetBaseline() {
+  if (!confirm('Re-baseline the plan to today?\n\nEverything done so far counts as on time, the rest is re-planned from today, and all "days late" counters start again from zero.')) return;
+  createBaseline();
+  saveState(STATE);
+  refreshPlan();
+  if (CURRENT_TAB === 'progress') renderProgress();
+}
+
+// Where one item stands against the baseline.
+//   done  → {done, pre?, planned, doneOn, late}  (late < 0 means early)
+//   open  → {done:false, planned, late, due}     (late > 0 only once overdue)
+function ledgerOf(u, today) {
+  const L = STATE.baseline;
+  if (!L) return null;
+  today = today || todayStr();
+  const k = unitKey(u), on = (STATE.doneOn || {})[k];
+  if (unitDone(u)) {
+    if (!on || on === 'pre') return {done: true, pre: true, late: 0};
+    const planned = L.planned[k] || on;
+    return {done: true, planned, doneOn: on, late: daysBetween(planned, on)};
+  }
+  const planned = L.planned[k] || PLAN_END;
+  return {done: false, planned, late: Math.max(0, daysBetween(planned, today)), due: daysBetween(today, planned)};
+}
+
+// Speed, ETA and lateness for one stream (java, spring, aws, dsa, …).
+// Work is measured in hours of material. Speed is hours completed per calendar
+// day over the last SPEED_WINDOW days (or since the baseline, if newer);
+// the ETA is the remaining hours at that speed, compared with the date the
+// baseline said the stream would finish.
+function streamLedger(st, today) {
+  const L = STATE.baseline;
+  if (!L) return null;
+  today = today || todayStr();
+  const start = L.created < PLAN_START ? PLAN_START : L.created;
+  const winStart = addDays(today, -(SPEED_WINDOW - 1));
+  const r = {stream: st, total: 0, open: 0, openW: 0, late: 0, maxLate: 0,
+             plannedW: 0, plannedFinish: null, doneW: 0, windowW: 0};
+  streamUnits(st).forEach(u => {
+    const e = ledgerOf(u, today);
+    r.total++;
+    if (!e.pre) {
+      r.plannedW += u.w;
+      if (!r.plannedFinish || e.planned > r.plannedFinish) r.plannedFinish = e.planned;
+    }
+    if (e.done) {
+      if (!e.pre) { r.doneW += u.w; if (e.doneOn >= winStart && e.doneOn >= start) r.windowW += u.w; }
+    } else {
+      r.open++; r.openW += u.w;
+      if (e.late > 0) { r.late++; r.maxLate = Math.max(r.maxLate, e.late); }
+    }
+  });
+  r.days = Math.max(0, Math.min(SPEED_WINDOW, daysBetween(start, today) + 1));
+  r.rate = r.days ? r.windowW / r.days : 0;                          // h / day, actual (rolling)
+  r.plannedRate = r.plannedFinish
+    ? r.plannedW / Math.max(1, daysBetween(start, r.plannedFinish) + 1) : 0;   // h / day, planned
+  // The finish date always resolves to something, so it can be shown live:
+  // use real speed once there is any, otherwise the plan's own pace. Either
+  // way "today" keeps advancing while the backlog doesn't, so an idle stream's
+  // date marches forward a day at a time until work resumes.
+  r.liveSpeed = r.rate > 0;
+  r.effRate = r.rate > 0 ? r.rate : r.plannedRate;
+  r.projected = !r.open ? null
+    : r.effRate > 0 ? addDays(today, Math.ceil(r.openW / r.effRate))
+    : addDays(today, r.open);   // last resort: one open item per day
+  r.slip = (r.projected && r.plannedFinish) ? daysBetween(r.plannedFinish, r.projected) : null;
+  return r;
+}
+
+const SLIP_TOL = 2;   // days of ceil/rounding noise that still counts as "on plan"
+
+// The whole program finishes when its last stream does — every stream runs in
+// parallel across its own slots, so the finish date is the latest stream ETA.
+// Recomputed live, so an idle stream dragging its own date forward drags the
+// program date with it.
+function programFinish(today) {
+  today = today || todayStr();
+  let latest = null, anyOpen = false;
+  const perStream = [];
+  Object.keys(STREAMS).forEach(st => {
+    const r = streamLedger(st, today);
+    if (!r || !r.total) return;
+    if (r.open) { anyOpen = true; if (r.projected && (!latest || r.projected > latest)) latest = r.projected; }
+    perStream.push({st, label: STREAMS[st].label, badge: STREAMS[st].badge,
+                    open: r.open, projected: r.projected, slip: r.slip, live: r.liveSpeed});
+  });
+  return {anyOpen, date: latest, days: latest ? daysBetween(today, latest) : 0, perStream};
+}
+
+// Always-on banner: the single date everything is projected to be done by,
+// against the PLAN_END target. Flashes so it stays in the eye.
+function renderFinishFlash() {
+  const el = document.getElementById('finish-flash');
+  if (!el) return;
+  if (!STATE.baseline) { el.innerHTML = ''; return; }
+  const pf = programFinish();
+  if (!pf.anyOpen || !pf.date) { el.innerHTML = `<span class="ff-done">✓ All tracks complete</span>`; return; }
+  const vsTarget = daysBetween(PLAN_END, pf.date);   // >0 past target, <0 ahead
+  const cls = vsTarget > SLIP_TOL ? 'ff-late' : vsTarget < -SLIP_TOL ? 'ff-early' : 'ff-ontrack';
+  const vs = vsTarget > SLIP_TOL ? `${vsTarget}d past target`
+    : vsTarget < -SLIP_TOL ? `${-vsTarget}d ahead of target` : 'on target';
+  el.innerHTML = `<span class="ff-k">ALL TRACKS DONE BY</span>`
+    + `<span class="ff-date ${cls}">${fmtShort(pf.date)} ${pf.date.slice(0,4)}</span>`
+    + `<span class="ff-k">${pf.days}d left · ${vs} (${fmtShort(PLAN_END)})</span>`;
+}
+
+function slipFlag(r) {
+  if (!r.open)                   return {flag: '✓ complete',           cls: ' ahead'};
+  if (r.late > 0)                return {flag: `${r.maxLate}d behind`,  cls: ' behind'};
+  if (r.slip === null)           return {flag: r.days ? 'no speed yet' : 'not started', cls: ''};
+  if (r.slip > SLIP_TOL)         return {flag: `${r.slip}d behind`,     cls: ' behind'};
+  if (r.slip < -SLIP_TOL)        return {flag: `${-r.slip}d ahead`,     cls: ' ahead'};
+  return {flag: 'on plan', cls: ''};
+}
+
+// Open items that are overdue, collapsed for display: GFG videos roll up into
+// one line per topic, every other item stands alone.
+function lateItems(st, today) {
+  const out = [], byTopic = {};
+  streamUnits(st).forEach(u => {
+    const e = ledgerOf(u, today);
+    if (!e || e.done || e.late <= 0) return;
+    if (u.kind === 'gfg') {
+      const t = byTopic[u.topic] = byTopic[u.topic] || {name: u.topicName, n: 0, late: 0, planned: e.planned};
+      t.n++; t.late = Math.max(t.late, e.late); if (e.planned < t.planned) t.planned = e.planned;
+      if (t.n === 1) out.push(t);
+    } else {
+      out.push({name: u.name, group: u.gname, n: 1, late: e.late, planned: e.planned});
+    }
+  });
+  return out.sort((a, b) => b.late - a.late);
+}
+
+// Most recent completions with planned vs actual dates, again rolled up per
+// topic/day for GFG so a binge of videos doesn't bury everything else.
+function recentDone(limit) {
+  const rows = {};
+  Object.keys(STREAMS).forEach(st => streamUnits(st).forEach(u => {
+    const e = ledgerOf(u);
+    if (!e || !e.done || e.pre) return;
+    const key = u.kind === 'gfg' ? 'g:'+u.topic+':'+e.doneOn : unitKey(u);
+    const r = rows[key] = rows[key] || {stream: st, name: u.kind === 'gfg' ? u.topicName : u.name,
+      n: 0, planned: e.planned, doneOn: e.doneOn, late: e.late};
+    r.n++; r.late = Math.max(r.late, e.late);
+    if (e.planned < r.planned) r.planned = e.planned;
+  }));
+  return Object.keys(rows).map(k => rows[k])
+    .sort((a, b) => a.doneOn < b.doneOn ? 1 : a.doneOn > b.doneOn ? -1 : 0).slice(0, limit);
+}
+
+function lateText(n) {
+  return n > 0 ? `${n}d late` : n < 0 ? `${-n}d early` : 'on time';
+}
+
+// Inline "planned · done · late" tag for a single track topic row.
+function ledgerChip(u) {
+  const e = ledgerOf(u);
+  if (!e || e.pre) return '';
+  if (e.done) {
+    const cls = e.late > 0 ? 'late' : e.late < 0 ? 'early' : '';
+    return `plan ${fmtShort(e.planned)} → done ${fmtShort(e.doneOn)} · <span class="${cls}">${lateText(e.late)}</span>`;
+  }
+  if (e.late > 0) return `plan ${fmtShort(e.planned)} · <span class="late">${e.late}d late</span>`;
+  return `plan ${fmtShort(e.planned)}` + (e.due === 0 ? ' · today' : '');
+}
+
+function gfgTopicChip(t) {
+  if (!STATE.baseline) return '';
+  const today = todayStr();
+  let open = 0, maxLate = 0, nextPlan = null, lastDone = null, anyReal = false;
+  t.v.forEach((vid, i) => {
+    const e = ledgerOf({kind:'gfg', topic:t.id, idx:i+1}, today);
+    if (e.done) { if (!e.pre) { anyReal = true; if (!lastDone || e.doneOn > lastDone) lastDone = e.doneOn; maxLate = Math.max(maxLate, e.late); } }
+    else { open++; maxLate = Math.max(maxLate, e.late); if (!nextPlan || e.planned < nextPlan) nextPlan = e.planned; }
+  });
+  if (open) {
+    return ` · plan ${fmtShort(nextPlan)}` + (maxLate > 0 ? ` · <span class="late">${maxLate}d late</span>` : '');
+  }
+  if (anyReal) return ` · done ${fmtShort(lastDone)}` + (maxLate > 0 ? ` · <span class="late">${maxLate}d late</span>` : '');
+  return '';
+}
+
+// Compact "behind plan" strip for the Today tab.
+function renderLateBanner() {
+  if (!STATE.baseline) return '';
+  const today = todayStr();
+  const chips = [];
+  Object.keys(STREAMS).forEach(st => {
+    const r = streamLedger(st, today);
+    if (r.late) chips.push(`<span class="late-chip">${STREAMS[st].label} · ${r.late} item${r.late>1?'s':''} · ${r.maxLate}d</span>`);
+  });
+  if (!chips.length) {
+    return `<div class="card behind-card ok"><div class="lbl" style="margin:0;color:#6a994e">✓ On plan · nothing overdue</div></div>`;
+  }
+  return `<div class="card behind-card"><div class="lbl" style="color:#e63946">Behind plan · oldest overdue first on the Progress tab</div>${chips.join('')}</div>`;
+}
+
+function fmtRate(h) { return h > 0 ? (Math.round(h * 100) / 100) + 'h/day' : '—'; }
+
+function renderProgress() {
+  const el = document.getElementById('panel-progress');
+  if (!el) return;
+  if (!STATE.baseline) { el.innerHTML = `<div class="card"><div class="slot-content">Baseline not set yet.</div></div>`; return; }
+  const L = STATE.baseline, today = todayStr();
+
+  const pf = programFinish(today);
+  const vsTarget = pf.date ? daysBetween(PLAN_END, pf.date) : 0;
+  const pfCls = !pf.anyOpen ? 'early' : vsTarget > SLIP_TOL ? 'late' : vsTarget < -SLIP_TOL ? 'early' : '';
+  let html = `<div class="card" style="text-align:center;border-left:3px solid ${pfCls==='late'?'#e63946':pfCls==='early'?'#6a994e':'var(--accent)'}">
+    <div class="pg-k">ALL TRACKS PROJECTED DONE BY</div>
+    <div class="pre-plan-big ${pfCls}" style="font-size:30px;margin:4px 0">${!pf.anyOpen ? '✓ complete' : pf.date ? fmtShort(pf.date) + ', ' + pf.date.slice(0,4) : '—'}</div>
+    <div style="font-size:12px;color:var(--dim);font-family:'JetBrains Mono',monospace">${pf.anyOpen ? pf.days + ' days from today · target ' + fmtShort(PLAN_END) + ', ' + PLAN_END.slice(0,4) : 'every track finished'}</div>
+  </div>`;
+
+  html += `<div class="card">
+    <div class="lbl">Baseline · set ${fmtShort(L.created)}</div>
+    <div class="slot-content" style="margin-bottom:0">Everything finished before this date counts as on time. Every other item was given a planned date; anything still open after its date is counted late, and anything ticked after it is recorded with how late it was.</div>
+    <button class="reset-btn" style="margin-top:10px" onclick="resetBaseline()">⟲ Re-baseline to today</button>
+  </div>`;
+
+  html += `<div class="lbl" style="margin:14px 2px 8px">Speed &amp; expected completion</div>`;
+  Object.keys(STREAMS).forEach(st => {
+    const r = streamLedger(st, today), S = STREAMS[st];
+    if (!r.total) return;
+    const sf = slipFlag(r);
+    const status = sf.flag.replace('behind', 'behind plan').replace('ahead', 'ahead of plan');
+    const cls = sf.cls.trim() === 'behind' ? 'late' : sf.cls.trim() === 'ahead' ? 'early' : '';
+    const finish = !r.open ? '—'
+      : r.projected ? (r.liveSpeed ? '' : '~') + fmtShort(r.projected) + ', ' + r.projected.slice(0,4) : '—';
+    const plan = r.plannedFinish ? fmtShort(r.plannedFinish) + ', ' + r.plannedFinish.slice(0,4) : '—';
+    html += `<div class="slot-block">
+      <div class="slot-header">${trackBadge(S.badge, S.label)}<span class="pg-status ${cls}">${status}</span></div>
+      <div class="pg-grid">
+        <div class="pg-cell"><div class="pg-k">Done</div><div class="pg-v">${r.total - r.open}/${r.total}</div></div>
+        <div class="pg-cell"><div class="pg-k">Speed (${r.days}d)</div><div class="pg-v">${fmtRate(r.rate)}</div></div>
+        <div class="pg-cell"><div class="pg-k">Needed</div><div class="pg-v">${fmtRate(r.plannedRate)}</div></div>
+        <div class="pg-cell"><div class="pg-k">Planned finish</div><div class="pg-v">${plan}</div></div>
+        <div class="pg-cell"><div class="pg-k">Expected finish</div><div class="pg-v ${cls}">${finish}</div></div>
+        <div class="pg-cell"><div class="pg-k">Overdue</div><div class="pg-v ${r.late ? 'late' : ''}">${r.late ? r.late + ' · worst ' + r.maxLate + 'd' : 'none'}</div></div>
+      </div>
+    </div>`;
+  });
+
+  let lateHtml = '';
+  Object.keys(STREAMS).forEach(st => {
+    const items = lateItems(st, today);
+    if (!items.length) return;
+    lateHtml += `<div class="u-group">${STREAMS[st].label}</div>` + items.slice(0, 6).map(i =>
+      `<div class="pg-line"><span>${i.name}${i.n > 1 ? ` <span style="color:var(--dim)">(${i.n} videos)</span>` : ''}</span>` +
+      `<span class="late">${i.late}d late</span><span class="pg-dim">plan ${fmtShort(i.planned)}</span></div>`).join('') +
+      (items.length > 6 ? `<div class="pg-dim" style="padding:2px 0">+ ${items.length - 6} more</div>` : '');
+  });
+  html += `<div class="lbl" style="margin:14px 2px 8px">Overdue items</div><div class="card">${lateHtml || '<div class="slot-content" style="margin:0">Nothing overdue. ✓</div>'}</div>`;
+
+  const done = recentDone(15);
+  html += `<div class="lbl" style="margin:14px 2px 8px">Recently completed · planned vs actual</div><div class="card">` +
+    (done.length ? done.map(d => {
+      const cls = d.late > 0 ? 'late' : d.late < 0 ? 'early' : '';
+      return `<div class="pg-line"><span>${d.name}${d.n > 1 ? ` <span style="color:var(--dim)">(${d.n} videos)</span>` : ''}</span>` +
+        `<span class="${cls}">${lateText(d.late)}</span><span class="pg-dim">plan ${fmtShort(d.planned)} → ${fmtShort(d.doneOn)}</span></div>`;
+    }).join('') : '<div class="slot-content" style="margin:0">Nothing completed since the baseline yet.</div>') + `</div>`;
+
+  el.innerHTML = html;
 }
 
 // ─── TABS ──────────────────────────────────────────────────────────────────
@@ -699,8 +1043,14 @@ function showTab(id, btn) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tb').forEach(b => b.classList.remove('active'));
   document.getElementById('panel-'+id).classList.add('active');
-  (btn || event.target).classList.add('active');
+  renderFinishFlash();
+  const tabBtn = (btn && btn.classList && btn.classList.contains('tb')) ? btn
+    : Array.prototype.find.call(document.querySelectorAll('.tb'),
+        b => (b.getAttribute('onclick') || '').indexOf("'"+id+"'") >= 0)
+      || (typeof event !== 'undefined' && event.target);
+  if (tabBtn && tabBtn.classList) tabBtn.classList.add('active');
   if (id === 'today')  renderToday();
+  if (id === 'progress') renderProgress();
   if (id === 'weeks')  renderWeeks();
   if (id === 'gfg')    renderGFG();
   if (id === 'java')   renderTrackTab('java');
@@ -778,6 +1128,7 @@ function renderToday() {
       <div class="lbl">This week · at a glance</div>
       ${renderWeekStrip(week, today)}
     </div>`;
+  renderFinishFlash();
 }
 
 function renderDayContent(day, week, preview) {
@@ -884,31 +1235,39 @@ function toggleSlot(date, slot) {
   refreshPlan();
 }
 
-// How far ahead or behind each stream is running, right now.
+// Pace, now driven by the plan ledger: for each stream, how far done it is,
+// whether it is behind/ahead of the date the baseline planned it to finish,
+// and when it is actually projected to finish at the current speed. The old
+// "work per remaining session" view lives on in full on the Progress tab.
 function renderPace() {
-  const pace = getPlan().pace;
-  const rows = Object.keys(STREAMS).filter(k => pace[k] && pace[k].total).map(k => {
-    const p = pace[k], S = STREAMS[k];
-    const pct = p.total ? Math.round(p.done / p.total * 100) : 0;
-    const per = p.sessions
-      ? fmtH(p.load) + ' / session'
-      : (p.left ? 'no sessions remain' : 'complete');
-    let flag = '', cls = '';
-    if (p.stuck)              { flag = `⚠ ${p.left} stranded`; cls = ' behind'; }
-    else if (!p.left)         { flag = '✓ clear';              cls = ' ahead'; }
-    else if (p.ratio >= 1.15) { flag = `${p.ratio.toFixed(1)}× pace`; cls = ' behind'; }
-    else if (p.ratio <= 0.9)  { flag = `${p.ratio.toFixed(1)}× pace`; cls = ' ahead'; }
-    else                      { flag = 'on plan'; }
+  if (!STATE.baseline) return '';
+  const today = todayStr();
+  let overdue = 0;
+  const rows = Object.keys(STREAMS).map(k => {
+    const r = streamLedger(k, today), S = STREAMS[k];
+    if (!r.total) return '';
+    overdue += r.late;
+    const pct = Math.round((r.total - r.open) / r.total * 100);
+    const {flag, cls} = slipFlag(r);
+    const eta = !r.open ? 'done'
+      : (r.projected ? (r.liveSpeed ? 'ETA ' : '~') + fmtShort(r.projected) : 'ETA —');
+    const lateTag = r.late ? `<span class="late"> · ${r.late} late</span>` : '';
     return `<div class="pace-row">
       ${trackBadge(S.badge, S.label)}
       <div class="pace-bar"><div class="pace-fill${cls}" style="width:${pct}%"></div></div>
-      <div class="pace-num">${p.done}/${p.total}</div>
-      <div class="pace-rate">${p.sessions} left · ${per}</div>
+      <div class="pace-num">${r.total - r.open}/${r.total}${lateTag}</div>
+      <div class="pace-rate">${fmtRate(r.rate)} · ${eta}</div>
       <div class="pace-flag${cls}">${flag}</div>
     </div>`;
   }).join('');
+  const head = overdue
+    ? `<span style="color:#e63946">Pace · ${overdue} item${overdue>1?'s':''} overdue</span>`
+    : `<span style="color:#6a994e">Pace · on plan</span>`;
   return `<div class="card">
-    <div class="lbl">Pace · anything left undone rolls forward into the sessions that remain</div>
+    <div class="lbl" style="display:flex;justify-content:space-between;align-items:center">
+      ${head}
+      <span class="pace-link" onclick="showTab('progress')" style="cursor:pointer;color:var(--accent);text-transform:none;letter-spacing:0">Progress tab →</span>
+    </div>
     ${rows}
   </div>`;
 }
@@ -1095,7 +1454,7 @@ function renderGFG() {
         <div class="topic-num"><span class="gfg-chevron${tOpen ? ' open' : ''}">▸</span>${String(ti + 1).padStart(2, '0')}</div>
         <div class="topic-info">
           <div class="topic-name">${t.name}</div>
-          <div class="topic-counts">${ts.total} videos · ${fmtH(ts.totalH)}</div>
+          <div class="topic-counts">${ts.total} videos · ${fmtH(ts.totalH)}${gfgTopicChip(t)}</div>
         </div>
         <div class="topic-pct">${ts.pct}%</div>
         <div class="topic-mini-bar"><div class="fill" style="width:${ts.pct}%"></div></div>
@@ -1130,6 +1489,7 @@ function resetAll() {
   if (!confirm('Reset ALL progress?\n\nThis clears GFG counters, every track, and all daily ticks — on this device and in your synced account. It cannot be undone.')) return;
   localStorage.removeItem(activeStorageKey());
   STATE = getDefaultState();
+  ensureLedger();
   saveState(STATE);
   invalidatePlan();
   renderGFG();
@@ -1352,6 +1712,7 @@ function init() {
       STATE = loadState();   // re-read under this account's own local cache key
       if (btn) { btn.textContent = 'Sign Out (' + (user.displayName || user.email || 'account').split(' ')[0] + ')'; btn.className = 'auth-btn signed-in'; }
       listenToFirestore(user.uid).then(() => {
+        ensureLedger();
         renderToday();
         renderRules();
         showApp();
@@ -1397,6 +1758,8 @@ function applyRemoteState(remote) {
   // dailyLog or a per-track key undefined
   if (!remote.dailyChecks) remote.dailyChecks = {};
   if (!remote.dailyLog) remote.dailyLog = {};
+  if (!remote.doneOn) remote.doneOn = {};
+  if (!remote.baseline) remote.baseline = null;
   if (!remote.gfg) remote.gfg = getDefaultState().gfg;
   if (!remote.tracks) remote.tracks = getDefaultTracks();
   else Object.keys(getDefaultTracks()).forEach(k => { if (!remote.tracks[k]) remote.tracks[k] = {}; });
@@ -1935,171 +2298,78 @@ const TRACK_DEFS = {
   },
 
   sql: {
-    name:'SQL / DB', color:'#a87fb8', totalHours:12.45, courseUrl:'https://www.udemy.com/course/the-ultimate-mysql-bootcamp-go-from-sql-beginner-to-expert/learn/lecture/34511736#overview',
+    name:'SQL / DB', color:'#a87fb8', totalHours:23.9,
     groups:[
-      {id:'sql-getting-started-and-installation', name:'Getting Started & Installation', hours:0.32, topics:[
-        {id:'sql-getting-started-and-installation-1', name:'Section Introduction', h:0.0172, p:'V.High'},
-        {id:'sql-getting-started-and-installation-2', name:'What Is A Database?', h:0.1211, p:'V.High'},
-        {id:'sql-getting-started-and-installation-3', name:'SQL vs. MySQL', h:0.0972, p:'V.High'},
-        {id:'sql-getting-started-and-installation-4', name:'Installation: START HERE!', h:0.0881, p:'V.High'}
+      {id:'sql-refresher', name:'Foundations Refresher', hours:2.5, topics:[
+        {id:'sql-refresher-1', name:'SELECT, WHERE, DISTINCT, ORDER BY, LIMIT', h:0.4, p:'High'},
+        {id:'sql-refresher-2', name:'Filtering: IN, BETWEEN, LIKE, IS NULL', h:0.3, p:'High'},
+        {id:'sql-refresher-3', name:'Aggregates: COUNT, SUM, AVG, MIN, MAX', h:0.35, p:'High'},
+        {id:'sql-refresher-4', name:'GROUP BY and HAVING (vs WHERE)', h:0.45, p:'V.High'},
+        {id:'sql-refresher-5', name:'NULL semantics & 3-valued logic (COALESCE, NULLIF)', h:0.4, p:'V.High'},
+        {id:'sql-refresher-6', name:'INSERT / UPDATE / DELETE, CASE expressions', h:0.3, p:'Medium'},
+        {id:'sql-refresher-7', name:'Data types & implicit conversion gotchas', h:0.3, p:'Medium'}
       ]},
-      {id:'sql-creating-databases-and-tables', name:'Creating Databases & Tables', hours:0.81, topics:[
-        {id:'sql-creating-databases-and-tables-1', name:'Section Introduction', h:0.0192, p:'V.High'},
-        {id:'sql-creating-databases-and-tables-2', name:'Showing Databases', h:0.0708, p:'V.High'},
-        {id:'sql-creating-databases-and-tables-3', name:'Creating Databases', h:0.0819, p:'V.High'},
-        {id:'sql-creating-databases-and-tables-4', name:'Dropping and Using Databases', h:0.0922, p:'V.High'},
-        {id:'sql-creating-databases-and-tables-5', name:'Introducing Tables', h:0.0883, p:'V.High'},
-        {id:'sql-creating-databases-and-tables-6', name:'Data Types: The Basics', h:0.1272, p:'V.High'},
-        {id:'sql-creating-databases-and-tables-7', name:'Basic Datatypes Challenge', h:0.0431, p:'V.High'},
-        {id:'sql-creating-databases-and-tables-8', name:'Creating Tables', h:0.0825, p:'V.High'},
-        {id:'sql-creating-databases-and-tables-9', name:'How Do We Know It Worked?', h:0.0758, p:'V.High'},
-        {id:'sql-creating-databases-and-tables-10', name:'Dropping Tables', h:0.0361, p:'V.High'},
-        {id:'sql-creating-databases-and-tables-11', name:'Tables Basics Activity', h:0.0433, p:'V.High'},
-        {id:'sql-creating-databases-and-tables-12', name:'MySQL Comments', h:0.0533, p:'V.High'}
+      {id:'sql-joins', name:'Joins In Depth', hours:2.6, topics:[
+        {id:'sql-joins-1', name:'INNER vs LEFT/RIGHT vs FULL OUTER', h:0.5, p:'V.High'},
+        {id:'sql-joins-2', name:'Multi-table joins & join order', h:0.45, p:'High'},
+        {id:'sql-joins-3', name:'Self joins', h:0.4, p:'High'},
+        {id:'sql-joins-4', name:'CROSS JOIN & when it is intended', h:0.25, p:'Medium'},
+        {id:'sql-joins-5', name:'Anti-joins: NOT EXISTS vs NOT IN vs LEFT JOIN … NULL', h:0.55, p:'V.High'},
+        {id:'sql-joins-6', name:'Fan-out / row multiplication pitfalls', h:0.45, p:'V.High'}
       ]},
-      {id:'sql-inserting-data', name:'Inserting Data', hours:0.89, topics:[
-        {id:'sql-inserting-data-1', name:'Section Introduction', h:0.0278, p:'V.High'},
-        {id:'sql-inserting-data-2', name:'INSERT: The Basics', h:0.0622, p:'V.High'},
-        {id:'sql-inserting-data-3', name:'A Quick Preview of SELECT', h:0.0289, p:'V.High'},
-        {id:'sql-inserting-data-4', name:'Multi-inserts', h:0.08, p:'V.High'},
-        {id:'sql-inserting-data-5', name:'INSERT Exercise', h:0.0908, p:'V.High'},
-        {id:'sql-inserting-data-6', name:'Working With NOT NULL', h:0.0944, p:'V.High'},
-        {id:'sql-inserting-data-7', name:'Sidenote: Quotes In MySQL', h:0.0703, p:'V.High'},
-        {id:'sql-inserting-data-8', name:'Adding DEFAULT Values', h:0.1086, p:'V.High'},
-        {id:'sql-inserting-data-9', name:'Introducing Primary Keys', h:0.0825, p:'V.High'},
-        {id:'sql-inserting-data-10', name:'Working With AUTO_INCREMENT', h:0.1203, p:'V.High'},
-        {id:'sql-inserting-data-11', name:'Create Table/ Insert Exercise', h:0.1219, p:'V.High'}
+      {id:'sql-subq-cte', name:'Subqueries & CTEs', hours:2.35, topics:[
+        {id:'sql-subq-cte-1', name:'Scalar & correlated subqueries', h:0.5, p:'V.High'},
+        {id:'sql-subq-cte-2', name:'IN / EXISTS / ANY / ALL and correlation', h:0.45, p:'V.High'},
+        {id:'sql-subq-cte-3', name:'CTEs (WITH) — readability & reuse', h:0.4, p:'High'},
+        {id:'sql-subq-cte-4', name:'Recursive CTEs (hierarchies, sequences)', h:0.6, p:'High'},
+        {id:'sql-subq-cte-5', name:'Derived table vs CTE vs view — trade-offs', h:0.4, p:'Medium'}
       ]},
-      {id:'sql-crud-basics', name:'CRUD Basics', hours:0.56, topics:[
-        {id:'sql-crud-basics-1', name:'Section Introduction', h:0.025, p:'V.High'},
-        {id:'sql-crud-basics-2', name:'Introducing CRUD', h:0.0308, p:'V.High'},
-        {id:'sql-crud-basics-3', name:'Officially Introducing SELECT', h:0.0536, p:'V.High'},
-        {id:'sql-crud-basics-4', name:'The WHERE clause', h:0.0589, p:'V.High'},
-        {id:'sql-crud-basics-5', name:'Rapid Fire Exercises', h:0.0236, p:'V.High'},
-        {id:'sql-crud-basics-6', name:'Rapid Fire Exercises SOLUTION', h:0.0486, p:'V.High'},
-        {id:'sql-crud-basics-7', name:'Aliases', h:0.0369, p:'V.High'},
-        {id:'sql-crud-basics-8', name:'Using UPDATE', h:0.09, p:'V.High'},
-        {id:'sql-crud-basics-9', name:'A Quick Rule Of Thumb', h:0.0289, p:'V.High'},
-        {id:'sql-crud-basics-10', name:'UPDATE Exercise', h:0.0178, p:'V.High'},
-        {id:'sql-crud-basics-11', name:'UPDATE Exercise SOLUTION', h:0.0503, p:'V.High'},
-        {id:'sql-crud-basics-12', name:'Introducing DELETE', h:0.0436, p:'V.High'},
-        {id:'sql-crud-basics-13', name:'DELETE Exercise', h:0.0161, p:'V.High'},
-        {id:'sql-crud-basics-14', name:'DELETE Exercise SOLUTION', h:0.0375, p:'V.High'}
+      {id:'sql-window', name:'Window Functions', hours:2.8, topics:[
+        {id:'sql-window-1', name:'OVER / PARTITION BY / ORDER BY mental model', h:0.5, p:'V.High'},
+        {id:'sql-window-2', name:'ROW_NUMBER, RANK, DENSE_RANK', h:0.5, p:'V.High'},
+        {id:'sql-window-3', name:'LAG / LEAD (deltas, comparisons)', h:0.45, p:'V.High'},
+        {id:'sql-window-4', name:'Frames: running totals & moving averages', h:0.55, p:'High'},
+        {id:'sql-window-5', name:'NTILE, FIRST_VALUE, LAST_VALUE', h:0.35, p:'Medium'},
+        {id:'sql-window-6', name:'Top-N per group pattern', h:0.45, p:'V.High'}
       ]},
-      {id:'sql-crud-challenge', name:'CRUD Challenge', hours:0.39, topics:[
-        {id:'sql-crud-challenge-1', name:'Section Introduction', h:0.0311, p:'V.High'},
-        {id:'sql-crud-challenge-2', name:'Introducing the CRUD Challenge', h:0.0864, p:'V.High'},
-        {id:'sql-crud-challenge-3', name:'CRUD Challenge Solution: Creating', h:0.1353, p:'V.High'},
-        {id:'sql-crud-challenge-4', name:'CRUD Challenge Solution: Reading', h:0.0283, p:'V.High'},
-        {id:'sql-crud-challenge-5', name:'CRUD Challenge Solution: Updating', h:0.0567, p:'V.High'},
-        {id:'sql-crud-challenge-6', name:'CRUD Challenge Solution: Deleting', h:0.0472, p:'V.High'}
+      {id:'sql-index-opt', name:'Indexing & Query Optimization', hours:3.35, topics:[
+        {id:'sql-index-opt-1', name:'How B-tree indexes work', h:0.5, p:'V.High'},
+        {id:'sql-index-opt-2', name:'Clustered vs secondary indexes', h:0.45, p:'V.High'},
+        {id:'sql-index-opt-3', name:'Composite indexes & leftmost-prefix rule', h:0.5, p:'V.High'},
+        {id:'sql-index-opt-4', name:'Covering indexes & index-only scans', h:0.4, p:'High'},
+        {id:'sql-index-opt-5', name:'Reading EXPLAIN / EXPLAIN ANALYZE', h:0.6, p:'V.High'},
+        {id:'sql-index-opt-6', name:'Why an index is NOT used (functions, leading %, type mismatch)', h:0.5, p:'V.High'},
+        {id:'sql-index-opt-7', name:'Selectivity, cardinality & statistics', h:0.4, p:'High'}
       ]},
-      {id:'sql-string-functions', name:'String Functions', hours:1.24, topics:[
-        {id:'sql-string-functions-1', name:'Section Introduction', h:0.0344, p:'V.High'},
-        {id:'sql-string-functions-2', name:'The World Of String Functions', h:0.0311, p:'V.High'},
-        {id:'sql-string-functions-3', name:'Loading Our Books Data', h:0.0903, p:'V.High'},
-        {id:'sql-string-functions-4', name:'CONCAT', h:0.1472, p:'V.High'},
-        {id:'sql-string-functions-5', name:'SUBSTRING', h:0.1253, p:'V.High'},
-        {id:'sql-string-functions-6', name:'Combining String Functions', h:0.1136, p:'V.High'},
-        {id:'sql-string-functions-7', name:'Sidenote: SQL Formatting', h:0.0739, p:'V.High'},
-        {id:'sql-string-functions-8', name:'REPLACE', h:0.0953, p:'V.High'},
-        {id:'sql-string-functions-9', name:'REVERSE', h:0.0583, p:'V.High'},
-        {id:'sql-string-functions-10', name:'CHAR_LENGTH', h:0.0472, p:'V.High'},
-        {id:'sql-string-functions-11', name:'UPPER & LOWER', h:0.0633, p:'V.High'},
-        {id:'sql-string-functions-12', name:'Other String Functions', h:0.1056, p:'V.High'},
-        {id:'sql-string-functions-13', name:'String Functions Exercise', h:0.0619, p:'V.High'},
-        {id:'sql-string-functions-14', name:'String Functions Exerise SOLUTION', h:0.1922, p:'V.High'}
+      {id:'sql-txn', name:'Transactions & Concurrency', hours:2.9, topics:[
+        {id:'sql-txn-1', name:'ACID properties in practice', h:0.4, p:'V.High'},
+        {id:'sql-txn-2', name:'Isolation levels: RU / RC / RR / Serializable', h:0.6, p:'V.High'},
+        {id:'sql-txn-3', name:'Dirty, non-repeatable & phantom reads', h:0.5, p:'V.High'},
+        {id:'sql-txn-4', name:'Locking: shared/exclusive, row vs table', h:0.45, p:'High'},
+        {id:'sql-txn-5', name:'Deadlocks — cause & avoidance', h:0.45, p:'High'},
+        {id:'sql-txn-6', name:'MVCC overview; optimistic vs pessimistic locking', h:0.5, p:'High'}
       ]},
-      {id:'sql-refining-selections', name:'Refining Selections', hours:0.9, topics:[
-        {id:'sql-refining-selections-1', name:'Section Introduction', h:0.0097, p:'V.High'},
-        {id:'sql-refining-selections-2', name:'Adding Some New Books', h:0.0239, p:'V.High'},
-        {id:'sql-refining-selections-3', name:'DISTINCT', h:0.1033, p:'V.High'},
-        {id:'sql-refining-selections-4', name:'ORDER BY', h:0.1103, p:'V.High'},
-        {id:'sql-refining-selections-5', name:'More On ORDER BY', h:0.1053, p:'V.High'},
-        {id:'sql-refining-selections-6', name:'LIMIT', h:0.0942, p:'V.High'},
-        {id:'sql-refining-selections-7', name:'LIKE', h:0.1206, p:'V.High'},
-        {id:'sql-refining-selections-8', name:'Escaping Wildcards', h:0.0342, p:'V.High'},
-        {id:'sql-refining-selections-9', name:'Refining Selections Exercise', h:0.0514, p:'V.High'},
-        {id:'sql-refining-selections-10', name:'Refining Selections Exercise SOLUTION', h:0.2444, p:'V.High'}
+      {id:'sql-schema', name:'Schema Design & Normalization', hours:2.2, topics:[
+        {id:'sql-schema-1', name:'Normalization 1NF → 2NF → 3NF → BCNF', h:0.6, p:'V.High'},
+        {id:'sql-schema-2', name:'Denormalization trade-offs', h:0.4, p:'High'},
+        {id:'sql-schema-3', name:'Keys: primary, foreign, unique, composite', h:0.4, p:'High'},
+        {id:'sql-schema-4', name:'Constraints & referential integrity', h:0.35, p:'Medium'},
+        {id:'sql-schema-5', name:'OLTP vs OLAP modeling (star/snowflake)', h:0.45, p:'Medium'}
       ]},
-      {id:'sql-aggregate-functions', name:'Aggregate Functions', hours:1.09, topics:[
-        {id:'sql-aggregate-functions-1', name:'Section Introduction', h:0.0656, p:'V.High'},
-        {id:'sql-aggregate-functions-2', name:'Count Basics', h:0.1258, p:'V.High'},
-        {id:'sql-aggregate-functions-3', name:'GROUP BY', h:0.1697, p:'V.High'},
-        {id:'sql-aggregate-functions-4', name:'MIN and MAX Basics', h:0.0625, p:'V.High'},
-        {id:'sql-aggregate-functions-5', name:'Subqueries', h:0.1069, p:'V.High'},
-        {id:'sql-aggregate-functions-6', name:'Grouping By Multiple Columns', h:0.0797, p:'V.High'},
-        {id:'sql-aggregate-functions-7', name:'MIN and MAX With GROUP BY', h:0.0972, p:'V.High'},
-        {id:'sql-aggregate-functions-8', name:'SUM', h:0.0625, p:'V.High'},
-        {id:'sql-aggregate-functions-9', name:'AVG', h:0.0397, p:'V.High'},
-        {id:'sql-aggregate-functions-10', name:'Aggregate Functions Docs', h:0.0214, p:'V.High'},
-        {id:'sql-aggregate-functions-11', name:'Agg Functions Exercise', h:0.0475, p:'V.High'},
-        {id:'sql-aggregate-functions-12', name:'Agg Functions Exercise SOLUTION', h:0.2097, p:'V.High'}
+      {id:'sql-scale', name:'Scaling & Advanced', hours:2.3, topics:[
+        {id:'sql-scale-1', name:'Partitioning: range / list / hash', h:0.5, p:'High'},
+        {id:'sql-scale-2', name:'Sharding strategies & trade-offs', h:0.55, p:'V.High'},
+        {id:'sql-scale-3', name:'Replication & read scaling (primary/replica)', h:0.5, p:'High'},
+        {id:'sql-scale-4', name:'Materialized views & query caching', h:0.4, p:'Medium'},
+        {id:'sql-scale-5', name:'Bulk / batch operations & upserts', h:0.35, p:'Medium'}
       ]},
-      {id:'sql-revisiting-data-types', name:'Revisiting Data Types', hours:1.77, topics:[
-        {id:'sql-revisiting-data-types-1', name:'Section Introduction', h:0.0322, p:'V.High'},
-        {id:'sql-revisiting-data-types-2', name:'Surveying Other Data Types', h:0.0478, p:'V.High'},
-        {id:'sql-revisiting-data-types-3', name:'CHAR vs. VARCHAR', h:0.2014, p:'V.High'},
-        {id:'sql-revisiting-data-types-4', name:'INT, TINYINT, BIGINT, etc.', h:0.0836, p:'V.High'},
-        {id:'sql-revisiting-data-types-5', name:'DECIMAL', h:0.1153, p:'V.High'},
-        {id:'sql-revisiting-data-types-6', name:'FLOAT & DOUBLE', h:0.0919, p:'V.High'},
-        {id:'sql-revisiting-data-types-7', name:'DATE and TIME', h:0.0769, p:'V.High'},
-        {id:'sql-revisiting-data-types-8', name:'Working With Dates', h:0.1275, p:'V.High'},
-        {id:'sql-revisiting-data-types-9', name:'CURDATE, CURTIME, & NOW', h:0.0708, p:'V.High'},
-        {id:'sql-revisiting-data-types-10', name:'Date Functions', h:0.1008, p:'V.High'},
-        {id:'sql-revisiting-data-types-11', name:'Time Functions', h:0.0342, p:'V.High'},
-        {id:'sql-revisiting-data-types-12', name:'Formatting Dates', h:0.1536, p:'V.High'},
-        {id:'sql-revisiting-data-types-13', name:'Date Math', h:0.1783, p:'V.High'},
-        {id:'sql-revisiting-data-types-14', name:'TIMESTAMPS', h:0.0578, p:'V.High'},
-        {id:'sql-revisiting-data-types-15', name:'DEFAULT & ON UPDATE TIMESTAMPS', h:0.1161, p:'V.High'},
-        {id:'sql-revisiting-data-types-16', name:'Data Types Exercise', h:0.06, p:'V.High'},
-        {id:'sql-revisiting-data-types-17', name:'Data Types Exercise SOLUTION', h:0.2211, p:'V.High'}
-      ]},
-      {id:'sql-comparison-and-logical-operators', name:'Comparison & Logical Operators', hours:1.36, topics:[
-        {id:'sql-comparison-and-logical-operators-1', name:'Section Introduction', h:0.0456, p:'V.High'},
-        {id:'sql-comparison-and-logical-operators-2', name:'Not Equal', h:0.0489, p:'V.High'},
-        {id:'sql-comparison-and-logical-operators-3', name:'NOT LIKE', h:0.0558, p:'V.High'},
-        {id:'sql-comparison-and-logical-operators-4', name:'Greater Than', h:0.0656, p:'V.High'},
-        {id:'sql-comparison-and-logical-operators-5', name:'Less Than Or Equal To', h:0.0492, p:'V.High'},
-        {id:'sql-comparison-and-logical-operators-6', name:'Logical AND', h:0.1481, p:'V.High'},
-        {id:'sql-comparison-and-logical-operators-7', name:'Logical OR', h:0.0939, p:'V.High'},
-        {id:'sql-comparison-and-logical-operators-8', name:'Between', h:0.0797, p:'V.High'},
-        {id:'sql-comparison-and-logical-operators-9', name:'Comparing Dates', h:0.1375, p:'V.High'},
-        {id:'sql-comparison-and-logical-operators-10', name:'The IN Operator', h:0.1411, p:'V.High'},
-        {id:'sql-comparison-and-logical-operators-11', name:'CASE', h:0.1461, p:'V.High'},
-        {id:'sql-comparison-and-logical-operators-12', name:'IS NULL', h:0.0342, p:'V.High'},
-        {id:'sql-comparison-and-logical-operators-13', name:'Exercise', h:0.0569, p:'V.High'},
-        {id:'sql-comparison-and-logical-operators-14', name:'Exercise SOLUTION', h:0.2561, p:'V.High'}
-      ]},
-      {id:'sql-constraints-and-alter-table', name:'Constraints & ALTER TABLE', hours:0.63, topics:[
-        {id:'sql-constraints-and-alter-table-1', name:'UNIQUE Constraint', h:0.0619, p:'V.High'},
-        {id:'sql-constraints-and-alter-table-2', name:'CHECK Constraints', h:0.0828, p:'V.High'},
-        {id:'sql-constraints-and-alter-table-3', name:'Named Constraints', h:0.0703, p:'V.High'},
-        {id:'sql-constraints-and-alter-table-4', name:'Multiple Column Constraints', h:0.0889, p:'V.High'},
-        {id:'sql-constraints-and-alter-table-5', name:'ALTER TABLE: Adding Columns', h:0.0939, p:'V.High'},
-        {id:'sql-constraints-and-alter-table-6', name:'ALTER TABLE: Dropping Columns', h:0.0317, p:'V.High'},
-        {id:'sql-constraints-and-alter-table-7', name:'ALTER TABLE: Renaming', h:0.0619, p:'V.High'},
-        {id:'sql-constraints-and-alter-table-8', name:'ALTER TABLE: Modifying Columns', h:0.0653, p:'V.High'},
-        {id:'sql-constraints-and-alter-table-9', name:'ALTER TABLE: Constraints', h:0.07, p:'V.High'}
-      ]},
-      {id:'sql-one-to-many-and-joins', name:'One to Many & Joins', hours:1.61, topics:[
-        {id:'sql-one-to-many-and-joins-1', name:'Section Introduction', h:0.0325, p:'V.High'},
-        {id:'sql-one-to-many-and-joins-2', name:'Data is Messy', h:0.1744, p:'V.High'},
-        {id:'sql-one-to-many-and-joins-3', name:'Relationships Basics', h:0.0767, p:'V.High'},
-        {id:'sql-one-to-many-and-joins-4', name:'One to Many Relationship', h:0.2092, p:'V.High'},
-        {id:'sql-one-to-many-and-joins-5', name:'Working with FOREIGN KEY', h:0.1853, p:'V.High'},
-        {id:'sql-one-to-many-and-joins-6', name:'Cross Joins', h:0.1331, p:'V.High'},
-        {id:'sql-one-to-many-and-joins-7', name:'Inner Joins', h:0.1478, p:'V.High'},
-        {id:'sql-one-to-many-and-joins-8', name:'Inner Joins With Group By', h:0.0814, p:'V.High'},
-        {id:'sql-one-to-many-and-joins-9', name:'Left Join', h:0.1181, p:'V.High'},
-        {id:'sql-one-to-many-and-joins-10', name:'Left Join With Group By', h:0.0597, p:'V.High'},
-        {id:'sql-one-to-many-and-joins-11', name:'Right Join', h:0.0744, p:'V.High'},
-        {id:'sql-one-to-many-and-joins-12', name:'On Delete Cascade', h:0.0933, p:'V.High'},
-        {id:'sql-one-to-many-and-joins-13', name:'Joins Exercise', h:0.0503, p:'V.High'},
-        {id:'sql-one-to-many-and-joins-14', name:'Joins Exercise SOLUTION', h:0.1783, p:'V.High'}
-      ]},
-      {id:'sql-many-to-many', name:'Many to Many', hours:0.88, topics:[
-        {id:'sql-many-to-many-1', name:'Many to Many — full section (course video)', h:0.8833, p:'V.High'}
+      {id:'sql-practice', name:'Interview Practice', hours:2.9, topics:[
+        {id:'sql-practice-1', name:'2nd / Nth highest salary; dedupe rows', h:0.5, p:'V.High'},
+        {id:'sql-practice-2', name:'Gaps-and-islands / consecutive sequences', h:0.55, p:'High'},
+        {id:'sql-practice-3', name:'Pivot via conditional aggregation', h:0.4, p:'High'},
+        {id:'sql-practice-4', name:'Running / cumulative metrics problems', h:0.45, p:'High'},
+        {id:'sql-practice-5', name:'Mock set 1 — mixed hard queries', h:0.5, p:'V.High'},
+        {id:'sql-practice-6', name:'Mock set 2 — optimization & schema Qs', h:0.5, p:'V.High'}
       ]},
     ]
   },
@@ -2832,6 +3102,7 @@ function renderTrackTab(trackId) {
             <div class="tr-meta-row">
               <span class="tr-hours">${tp.h}h</span>
               <span class="tr-pri ${priClass(tp.p)}">${tp.p}</span>
+              <span class="tr-hours" id="trm-${tp.id}">${ledgerChip({kind:'track', track:trackId, id:tp.id})}</span>
             </div>
           </div>
           <div class="tr-btns">
@@ -2858,6 +3129,8 @@ function setTrackTopic(trackId, topicId, newState, groupId, force) {
   if (row) {
     row.className = 'tr-row' + (st==='done'?' s-done':st==='in-progress'?' s-prog':'');
   }
+  const meta = document.getElementById('trm-'+topicId);
+  if (meta) meta.innerHTML = ledgerChip({kind:'track', track:trackId, id:topicId});
   // update group bars + labels
   const def = TRACK_DEFS[trackId];
   if (!def) return;

@@ -4,59 +4,68 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A vanilla JS PWA (Progressive Web App) for tracking CPTE exam preparation. No build step, no framework, no dependencies. All state lives in `localStorage` under the key prefix `cpte_tracker_v1_`.
+TrackerApp: a no-build vanilla JS PWA for Ansh's 193-day Java/Spring/SQL/DSA/System Design/AWS interview prep (plan 2026-08-24 → 2027-03-05). No framework, no bundler, no npm dependencies. Signs in with Google (Firebase Auth, project `trackerapp-a59a4`), syncs progress to Firestore, and caches locally in localStorage.
 
 ## Running locally
 
-PWAs must be served over HTTP — opening `index.html` directly via `file://` will break the service worker and manifest. Use VS Code Live Server or any static server:
+PWAs must be served over HTTP — `file://` breaks the service worker and manifest.
 
 ```bash
-npx serve .          # serves on http://localhost:3000
+npx serve .                    # http://localhost:3000
 python3 -m http.server 8080
 ```
 
-Then open `http://localhost:<port>` in Chrome and check **DevTools → Application** to verify the manifest, service worker, and installability.
+Firebase Google sign-in needs the host to be an authorized domain in the Firebase console (`localhost` is by default). Check **DevTools → Application** for manifest, service worker, installability.
+
+## Tests
+
+```bash
+node test-ansh.js
+```
+
+Harness for `ansh.js` only: stubs DOM, `localStorage`, and `Date` (pinned to plan day 1, Aug 24 2026), `eval`s `ansh.js`, and asserts on the scheduler and rendered HTML. Run it after any change to `ansh.js`.
 
 ## File structure
 
 | File | Purpose |
 |---|---|
-| `index.html` | HTML shell + PWA meta tags + SW registration |
-| `styles.css` | All CSS (extracted from the original monolithic HTML) |
-| `app.js` | All JS logic + PWA install-prompt handler |
-| `manifest.json` | PWA manifest (name, icons, theme, display mode) |
-| `service-worker.js` | Offline cache (cache-first strategy) |
-| `icons/` | PNG icons required by manifest (192×192 and 512×512) |
-| `icons/generate-icons.html` | Open in browser to generate and download placeholder icons |
+| `index.html` | Redirects to `ansh.html` |
+| `ansh.html` / `ansh.js` | The tracker (CSS is inline in the HTML) |
+| `manifest-ansh.json` | PWA manifest (`start_url: ./ansh.html`) |
+| `service-worker.js` | Cache-first offline cache shared by all pages |
+| `icons/` | `icon-192.png`, `icon-512.png` (committed) |
+| `test-ansh.js` | Node test harness for `ansh.js` |
+| `*.xlsx` | Source data for Ansh's course lists (GFG videos, MySQL bootcamp) |
 
-## Icons
+## Architecture — Ansh tracker (`ansh.js`)
 
-The two PNG icons (`icons/icon-192.png`, `icons/icon-512.png`) must exist before the PWA is installable. Open `icons/generate-icons.html` in a browser and click the download buttons to generate them, then save them into the `icons/` folder.
+- **Hard sign-in gate:** app stays hidden until auth succeeds (`showApp` / `showSignInGate`). Local cache key is per account: `java-prep-tracker-v2:<uid>` (`activeStorageKey()`), so accounts can't bleed into each other.
+- **Live sync:** `syncToFirestore` writes the whole state to `ansh_tracker/{uid}` on every `saveState` (no debounce). `listenToFirestore` uses `onSnapshot`; own echoes are skipped by comparing `lastUpdated`. Remote state goes through `applyRemoteState` (same backfills as `loadState`).
+- **State:** `{version:'4.0', gfg:{topics:{id:{done:{idx:true}}}}, dailyChecks, dailyLog, tracks:{java,spring,sql,sd,cloud}, lastUpdated}`. Track topic states: `not-started | in-progress | done`. `migrateGfg` resets GFG progress for states older than `STATE_VERSION`; bump it only with a migration.
+- **Dynamic scheduler (core idea):** no day's workload is stored. `buildPlan()` recomputes everything from unfinished work on every render:
+  - Four daily slots: **A** DSA (GFG videos, every day), **B** Java/Spring alternating by day parity, **C** SQL/SD/Cloud per the day's `rt`, **D** AWS/System Design alternating.
+  - `streamUnits(id)` = ordered backlog; `unitDone(u)` checks state; `distribute()` spreads remaining units over remaining sessions weighted by slot hours without reordering.
+  - `HANDOVER` chain gives an exhausted stream's sessions to the next stream with work. `CAPPED` limits DSA (1.5h/day) and SQL (1h/day) to their real content.
+  - `pace[stream].ratio` compares remaining density to the full-curriculum baseline (behind/ahead).
+  - `assignmentFor()` shows the logged assignment once a slot is ticked (`dailyLog`), else the live projection. After any completion call `invalidatePlan()` / `refreshPlan()`.
+- **Data tables:** `GFG_MODULES`, `WEEKS` (authored day prose), `TRACK_DEFS` (java/spring/sql/sd/cloud groups → topics with `h` hours and priority). `TRACK_DEFS` is declared below the render code, so `init()` is called last — keep it there.
+- **Plan ledger (planned vs actual):** `STATE.baseline` freezes the planned date of every then-open item (set from today via `ensureLedger`/`createBaseline`; `resetBaseline` forgives the past and restarts). `STATE.doneOn` records the actual completion date of each item (`'pre'` = finished before the baseline, i.e. on time), kept in sync on every save by `reconcileDoneOn`. `ledgerOf(unit)` gives planned/doneOn/days-late for one item; items open past their planned date count as late.
+- **Speed & expected completion:** `streamLedger(stream)` measures hours done per day over a rolling `SPEED_WINDOW` (14 days) and projects a finish date — using real speed when there is any, otherwise the plan's own pace, so the date always resolves and marches forward on idle days and pulls back when you go faster. `programFinish()` = the latest stream ETA (everything runs in parallel), shown in the always-on flashing `#finish-flash` header banner and at the top of the Progress tab. `SLIP_TOL` (2 days) absorbs rounding noise in the behind/ahead flags.
+- **Tabs:** Today, **Progress** (baseline, per-stream speed/ETA/days-late, overdue list, planned-vs-actual history), Weeks, GFG Tracker, Java, Spring, SQL/DB, System Design, Cloud, Budget, Daily Rules. The Today tab's Pace card and per-row chips are ledger-driven.
 
-## Architecture
+## Service worker and cache busting
 
-**Data model** — `CS` (case states object) maps case IDs like `cardio-3` or `msk-12` to `'read' | 'revision' | 'confident'`. MCQ IDs are prefixed `mcq-`. Toggle a state by clicking the same button again (removes the key). Saved to `localStorage` on every change via `save('states', CS)`.
+`service-worker.js` is cache-first and pre-caches an explicit `FILES_TO_CACHE` list.
 
-**Calendar** — `buildCalendar()` constructs a 83-day array at startup. Days 1–10 are Phase 1 (practice cases only). Days 11–83 are Phase 2 (system cases + MCQ lectures). `getDayNum()` derives today's day number from `DAY1 = 2026-05-10`.
-
-**Rendering** — All case lists are rebuilt from scratch on `renderAll()` at init. Individual row class is updated in-place on state change via `setC()` → `rowClass()`. The Calendar tab re-renders on each visit via `renderCalendar()`.
-
-**No server, no auth, no network calls.** Everything is local; the service worker caches all static assets for offline use.
+- **Every deploy that changes a cached file:** bump `CACHE_NAME` (currently `tracker-v27`) or clients keep serving stale copies.
+- **New static file:** add it to `FILES_TO_CACHE` as well.
+- Install prompt: `ansh.js` shows a floating "Install App" button on `beforeinstallprompt` (Chrome only; iOS uses Add to Home Screen).
 
 ## Deployment (GitHub Pages)
 
-1. Push this folder to a GitHub repo (e.g. `cpte-tracker`)
-2. Settings → Pages → Deploy from branch → `main` / `/ (root)`
-3. Live at `https://<username>.github.io/cpte-tracker/`
+Push to GitHub, Settings → Pages → Deploy from branch → `main` / root. HTTPS (provided by Pages) is required for the service worker, install prompt, and Firebase auth. Add the Pages domain to Firebase Auth authorized domains.
 
-HTTPS is required for the service worker and install prompt to work — GitHub Pages provides this automatically.
+## Notes
 
-## Cache busting
-
-When you deploy a new version, increment the cache name in `service-worker.js`:
-
-```js
-const CACHE_NAME = "cpte-tracker-v2";  // bump on each deploy
-```
-
-Or clear via Chrome DevTools → Application → Clear Storage.
+- The Firebase web config (including API key) is committed in `ansh.html`. That is normal for Firebase web apps; access control relies on Firestore security rules limiting each user to their own document (`ansh_tracker/{uid}`).
+- Style: modern ES6+ in `ansh.js` (`const`/`let`, template literals).
