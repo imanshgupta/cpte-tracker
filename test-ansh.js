@@ -811,6 +811,17 @@ t('re-baselining forgives the past and restarts the counters', () => {
   global.__api.setToday(2026, 8, 31);
   ok(f.streamLedger('java').late > 0, 'and it starts counting again from tomorrow');
 });
+t('Today surfaces carried-over work: a skipped day shows an overdue banner, not fresh content', () => {
+  resetLedger();                                  // baseline at Aug 24, nothing done
+  global.__api.setToday(2026, 8, 24);
+  f.renderToday();
+  ok(getEl('panel-today').innerHTML.indexOf('Carried over') < 0, 'day 1 has nothing carried over');
+  global.__api.setToday(2026, 8, 28);             // 4 days on, still nothing done
+  f.invalidatePlan(); f.renderToday();
+  const h = getEl('panel-today').innerHTML;
+  ok(h.indexOf('Carried over') >= 0, 'overdue work is flagged as carried over on Today');
+  ok(/Carried over · \d+ days behind/.test(h), 'and names how many days behind');
+});
 t('state shape is safe for old saves (no baseline) and for resetAll', () => {
   R();
   eq(global.__api.state.baseline, null, 'fresh state has no baseline');

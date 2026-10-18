@@ -52,13 +52,13 @@ Harness for `ansh.js` only: stubs DOM, `localStorage`, and `Date` (pinned to pla
 - **Hands-on stream (`handson`):** a tracked stream of real interview coding exercises (Core Java → Collections/Comparator → Generics → Streams → Concurrency → JVM → Spring Core/Data/Web/Boot → Finance/ETL capstones), ordered to follow the Java/Spring teaching arc. Lives in Slot C on `rt:'hands-on'` days via `streamForSlot` and `STREAMS.handson`; `TRACK_DEFS.handson` is topic-based (no `courseUrl`), ~43h over 51 exercises, surfaced on its own **Hands-on** tab. Changing the Java/Spring order? Re-order these groups to keep them aligned.
 - **Plan ledger (planned vs actual):** `STATE.baseline` freezes the planned date of every then-open item (set from today via `ensureLedger`/`createBaseline`; `resetBaseline` forgives the past and restarts). `STATE.doneOn` records the actual completion date of each item (`'pre'` = finished before the baseline, i.e. on time), kept in sync on every save by `reconcileDoneOn`. `ledgerOf(unit)` gives planned/doneOn/days-late for one item; items open past their planned date count as late.
 - **Speed & expected completion:** `streamLedger(stream)` measures hours done per day over a rolling `SPEED_WINDOW` (14 days) and projects a finish date — using real speed when there is any, otherwise the plan's own pace, so the date always resolves and marches forward on idle days and pulls back when you go faster. `programFinish()` = the latest stream ETA (everything runs in parallel), shown in the always-on flashing `#finish-flash` header banner and at the top of the Progress tab. `SLIP_TOL` (2 days) absorbs rounding noise in the behind/ahead flags.
-- **Tabs:** Today, **Progress** (baseline, per-stream speed/ETA/days-late, overdue list, planned-vs-actual history), Weeks, GFG Tracker, Java, Spring, SQL/DB, System Design, Cloud, **Hands-on**, Budget, Daily Rules. The Today tab's Pace card and per-row chips are ledger-driven.
+- **Tabs:** Today, **Progress** (baseline, per-stream speed/ETA/days-late, overdue list, planned-vs-actual history), Weeks, GFG Tracker, Java, Spring, SQL/DB, System Design, Cloud, **Hands-on**, Budget, Daily Rules. The Today tab's Pace card and per-row chips are ledger-driven. Each Today slot also shows a `carryTag` "⏰ Carried over · N days behind" banner (`.slot-carry`) when the items rolled into it were due on an earlier day, so a skipped day visibly carries over instead of looking like fresh work.
 
 ## Service worker and cache busting
 
 `service-worker.js` is cache-first and pre-caches an explicit `FILES_TO_CACHE` list.
 
-- **Every deploy that changes a cached file:** bump `CACHE_NAME` (currently `tracker-v29`) or clients keep serving stale copies.
+- **Every deploy that changes a cached file:** bump `CACHE_NAME` (currently `tracker-v30`) or clients keep serving stale copies.
 - **New static file:** add it to `FILES_TO_CACHE` as well.
 - Install prompt: `ansh.js` shows a floating "Install App" button on `beforeinstallprompt` (Chrome only; iOS uses Add to Home Screen).
 

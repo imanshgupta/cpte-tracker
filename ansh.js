@@ -1146,7 +1146,7 @@ function renderDayContent(day, week, preview) {
 }
 
 // A slot is either stream-backed (content computed from the live queue) or
-// prose-backed (mocks, behavioural, hands-on, revision — nothing to enumerate).
+// prose-backed (mocks, behavioural, revision — nothing to enumerate).
 function slotMeta(day, slot) {
   const primary = streamForSlot(day, slot);
   const H = SLOT_H[slot];
@@ -1161,7 +1161,20 @@ function slotMeta(day, slot) {
   const S  = STREAMS[st];
   const took = st !== primary ? ` ↺ from ${STREAMS[primary].label}` : '';
   return {label: `${S.label} · ${H}h${took}`, badge: S.badge,
-          content: renderUnits(st, a), stream: st};
+          content: carryTag(day, a) + renderUnits(st, a), stream: st};
+}
+
+// When the items sitting in a slot were planned for an earlier day and are
+// still open, the backlog has rolled them forward into today — say so loudly,
+// so a missed day visibly carries over instead of looking like fresh work.
+// Only shown for today; past/future days render their own plan plainly.
+function carryTag(day, a) {
+  if (!STATE.baseline || !a || !a.units || !a.units.length) return '';
+  if (day.d !== todayStr()) return '';
+  let maxLate = 0;
+  a.units.forEach(u => { const e = ledgerOf(u, day.d); if (e && e.late > maxLate) maxLate = e.late; });
+  if (maxLate <= 0) return '';
+  return `<div class="slot-carry">⏰ Carried over · ${maxLate} day${maxLate > 1 ? 's' : ''} behind — these were due earlier, finish them first</div>`;
 }
 
 function renderUnits(streamId, a) {
