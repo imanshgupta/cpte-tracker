@@ -880,6 +880,22 @@ t('a faster recent pace pulls both the track and program dates earlier', () => {
   ok(fastJava < slowJava, 'Java ETA pulled earlier: ' + slowJava + ' → ' + fastJava);
   ok(fastProg <= slowProg, 'program ETA not pushed later by faster work: ' + slowProg + ' → ' + fastProg);
 });
+t('a stream\'s first day of work cannot explode its ETA (cold-start speed)', () => {
+  // Reproduces the real bug: a stream (here handson) whose only completion is a
+  // single small exercise done "today", weeks after the baseline, used to divide
+  // that day's work across the full 14-day window → a near-zero speed → an ETA
+  // flung years out (the reported "Nov 2029 · 1131d"). Speed must be measured
+  // from the first active day, so doing work can never push the ETA later.
+  resetLedger();
+  global.__api.setToday(2026, 10, 1);        // ~5 weeks in; the speed window is full
+  const idle = f.streamLedger('handson').projected;   // nothing done → planned pace
+  doneTopic('handson', f.streamUnits('handson')[0].id);  // one exercise, today
+  f.invalidatePlan();
+  const after = f.streamLedger('handson').projected;
+  ok(after, 'still projects a date');
+  ok(after <= idle, 'first-day work never pushes the ETA later: ' + idle + ' → ' + after);
+  ok(after < '2028-01-01', 'ETA stays on a sane horizon, not years out: ' + after);
+});
 t('finishing a whole track drops it out of the program finish', () => {
   resetLedger();
   const withSql = f.programFinish();

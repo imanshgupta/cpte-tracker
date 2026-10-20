@@ -810,7 +810,7 @@ function streamLedger(st, today) {
   const start = L.created < PLAN_START ? PLAN_START : L.created;
   const winStart = addDays(today, -(SPEED_WINDOW - 1));
   const r = {stream: st, total: 0, open: 0, openW: 0, late: 0, maxLate: 0,
-             plannedW: 0, plannedFinish: null, doneW: 0, windowW: 0};
+             plannedW: 0, plannedFinish: null, doneW: 0, windowW: 0, firstW: null};
   streamUnits(st).forEach(u => {
     const e = ledgerOf(u, today);
     r.total++;
@@ -819,14 +819,29 @@ function streamLedger(st, today) {
       if (!r.plannedFinish || e.planned > r.plannedFinish) r.plannedFinish = e.planned;
     }
     if (e.done) {
-      if (!e.pre) { r.doneW += u.w; if (e.doneOn >= winStart && e.doneOn >= start) r.windowW += u.w; }
+      if (!e.pre) {
+        r.doneW += u.w;
+        if (e.doneOn >= winStart && e.doneOn >= start) {
+          r.windowW += u.w;
+          if (!r.firstW || e.doneOn < r.firstW) r.firstW = e.doneOn;   // first active day in window
+        }
+      }
     } else {
       r.open++; r.openW += u.w;
       if (e.late > 0) { r.late++; r.maxLate = Math.max(r.maxLate, e.late); }
     }
   });
   r.days = Math.max(0, Math.min(SPEED_WINDOW, daysBetween(start, today) + 1));
-  r.rate = r.days ? r.windowW / r.days : 0;                          // h / day, actual (rolling)
+  // Speed is measured over the days since this stream's *first* completion in the
+  // window, not the whole window: a stream only just started (e.g. one exercise
+  // done today) must not have that day's work divided across the 13 idle days
+  // before it, which would understate speed to ~0 and fling the ETA out by years.
+  // Once a stream has been worked all through the window, firstW ≈ winStart and
+  // this equals the full-window average, so mature streams are unchanged. Idle
+  // days *after* the first completion still count (today keeps moving, firstW
+  // doesn't), so an untouched stream's rate decays and its date marches forward.
+  r.activeDays = r.firstW ? Math.min(r.days, daysBetween(r.firstW, today) + 1) : r.days;
+  r.rate = r.activeDays ? r.windowW / r.activeDays : 0;              // h / day, actual (rolling)
   r.plannedRate = r.plannedFinish
     ? r.plannedW / Math.max(1, daysBetween(start, r.plannedFinish) + 1) : 0;   // h / day, planned
   // The finish date always resolves to something, so it can be shown live:
