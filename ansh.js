@@ -717,6 +717,7 @@ function fmtH(h) {
 // 1 day late, and so on. "Re-baseline" forgives the past and starts again.
 
 const SPEED_WINDOW = 14;   // days of history behind the speed / ETA numbers
+const MIN_SPEED_DAYS = 3;  // active days before real speed is trusted over the plan's pace
 
 function ymd(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -844,12 +845,21 @@ function streamLedger(st, today) {
   r.rate = r.activeDays ? r.windowW / r.activeDays : 0;              // h / day, actual (rolling)
   r.plannedRate = r.plannedFinish
     ? r.plannedW / Math.max(1, daysBetween(start, r.plannedFinish) + 1) : 0;   // h / day, planned
-  // The finish date always resolves to something, so it can be shown live:
-  // use real speed once there is any, otherwise the plan's own pace. Either
-  // way "today" keeps advancing while the backlog doesn't, so an idle stream's
-  // date marches forward a day at a time until work resumes.
-  r.liveSpeed = r.rate > 0;
-  r.effRate = r.rate > 0 ? r.rate : r.plannedRate;
+  // The finish date always resolves to something, so it can be shown live, but
+  // a thin sample must not be trusted to swing it. One partial day is no evidence
+  // of pace at all: a single 3-minute video would read as "0.05h/day" and shove
+  // the ETA out (an on-plan stream flips to "behind" the moment you tick one
+  // item); one binge would read as a blistering pace and call the stream wildly
+  // "ahead". So real speed is ignored until MIN_SPEED_DAYS of actual activity,
+  // then ramps in linearly, reaching full trust across the window. Below that
+  // the plan's own pace carries the date — which, because "today" keeps moving
+  // while the backlog doesn't, still marches an idle stream forward and still
+  // pulls in when you burn down backlog (fewer items left = earlier date),
+  // without pretending one day tells us your speed.
+  const conf = Math.max(0, Math.min(1,
+    (r.activeDays - MIN_SPEED_DAYS) / (SPEED_WINDOW - MIN_SPEED_DAYS)));
+  r.liveSpeed = r.rate > 0 && conf > 0;
+  r.effRate = r.liveSpeed ? conf * r.rate + (1 - conf) * r.plannedRate : r.plannedRate;
   r.projected = !r.open ? null
     : r.effRate > 0 ? addDays(today, Math.ceil(r.openW / r.effRate))
     : addDays(today, r.open);   // last resort: one open item per day

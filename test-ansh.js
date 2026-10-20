@@ -753,7 +753,7 @@ t('speed: hours done per day over the window, with a projected finish', () => {
   ok(r.plannedFinish && r.plannedRate > 0, 'has a planned finish and rate');
   ok(typeof r.slip === 'number', 'slip computed');
 });
-t('ETA always resolves (plan pace until there is real speed) and speeds up with work', () => {
+t('ETA always resolves (plan pace) and speeds up as backlog burns down', () => {
   resetLedger();
   const base = f.streamLedger('java');
   ok(base.projected, 'no progress still yields a date (plan pace)');
@@ -761,11 +761,22 @@ t('ETA always resolves (plan pace until there is real speed) and speeds up with 
   ok(Math.abs(f.daysBetween(base.projected, base.plannedFinish)) <= 3, 'plan-based ETA ≈ planned finish');
   f.streamUnits('java').slice(0, 5).forEach(u => doneTopic('java', u.id));
   const slow = f.streamLedger('java');
-  ok(slow.liveSpeed, 'now live-speed based');
+  ok(!slow.liveSpeed, 'one day of work is not yet enough to trust real speed');
   f.streamUnits('java').slice(5, 40).forEach(u => doneTopic('java', u.id));
   const fast = f.streamLedger('java').projected;
-  ok(fast < slow.projected, 'ETA ' + slow.projected + ' → ' + fast);
+  ok(fast < slow.projected, 'clearing backlog still pulls the ETA earlier: ' + slow.projected + ' → ' + fast);
   console.log('        Java ETA ' + slow.projected + ' → ' + fast + ' (plan ' + f.streamLedger('java').plannedFinish + ')');
+});
+t('real speed engages once several active days accumulate', () => {
+  resetLedger();                                  // Aug 24
+  f.streamUnits('java').slice(0, 3).forEach(u => doneTopic('java', u.id));
+  global.__api.setToday(2026, 8, 25); f.streamUnits('java').slice(3, 6).forEach(u => doneTopic('java', u.id));
+  global.__api.setToday(2026, 8, 26); f.streamUnits('java').slice(6, 9).forEach(u => doneTopic('java', u.id));
+  global.__api.setToday(2026, 8, 27); f.streamUnits('java').slice(9, 12).forEach(u => doneTopic('java', u.id));
+  const r = f.streamLedger('java');
+  ok(r.activeDays >= 4, 'a multi-day sample is observed: ' + r.activeDays);
+  ok(r.liveSpeed, 'real speed now drives the ETA, not the plan pace');
+  global.__api.setToday(2026, 8, 24);
 });
 t('an idle stream\'s ETA marches forward a day at a time', () => {
   resetLedger();
@@ -895,6 +906,20 @@ t('a stream\'s first day of work cannot explode its ETA (cold-start speed)', () 
   ok(after, 'still projects a date');
   ok(after <= idle, 'first-day work never pushes the ETA later: ' + idle + ' → ' + after);
   ok(after < '2028-01-01', 'ETA stays on a sane horizon, not years out: ' + after);
+});
+t('one completion cannot swing a stream to "behind" or wildly "ahead"', () => {
+  // The other face of thin-data speed: ticking a single item used to snap the
+  // ETA to that one day's cadence — a hair slow read as "4 days behind", a burst
+  // read as "67 days ahead". Real speed is blended in by confidence, so one day
+  // barely moves the projection off the planned pace.
+  resetLedger();
+  global.__api.setToday(2026, 10, 1);
+  const before = f.streamLedger('sd').slip;
+  doneTopic('sd', f.streamUnits('sd')[0].id);     // one item, today
+  f.invalidatePlan();
+  const after = f.streamLedger('sd').slip;
+  ok(Math.abs(after - before) <= 5,
+     'a single completion barely moves the slip: ' + before + ' → ' + after);
 });
 t('finishing a whole track drops it out of the program finish', () => {
   resetLedger();
