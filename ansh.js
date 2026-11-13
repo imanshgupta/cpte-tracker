@@ -523,6 +523,15 @@ function unitDone(u) {
 // Spread an ordered backlog over ordered sessions, weighted by each session's
 // hours, without reordering anything. Each session takes units until its share
 // of the cumulative total is met.
+// Spread ordered units across ordered sessions. Two rules hold at once:
+//   • proportional — on track or ahead, work spreads evenly by each session's
+//     hours, so no day is heavier than its share and later days stay light;
+//   • capped — a session never holds more than its own hour budget, and the
+//     running total never outruns the hours available so far.
+// Whichever is tighter wins. When there is more work than hours (you are behind)
+// capacity binds: each session fills to its budget and the surplus is left
+// UNSCHEDULED — it surfaces as backlog/behind through the ledger, instead of
+// being crammed onto the last day. A day only ever shows a day's worth.
 function distribute(units, slots) {
   const out = slots.map(() => []);
   if (!units.length || !slots.length) return out;
@@ -531,15 +540,23 @@ function distribute(units, slots) {
   let i = 0, cum = 0, cumH = 0;
   for (let k = 0; k < slots.length; k++) {
     cumH += slots[k].h;
-    const target = totW * (cumH / totH);
+    const target = Math.min(totW * (cumH / totH), cumH);   // proportional, but never past capacity
     while (i < units.length) {
-      // never leave an early session empty while work still outnumbers sessions
-      const mustFill = !out[k].length && (units.length - i) >= (slots.length - k);
+      // never leave an early session empty while work still outnumbers sessions,
+      // but not if that would push this session past the hours available so far
+      const mustFill = !out[k].length && (units.length - i) >= (slots.length - k)
+                       && cum + units[i].w / 2 <= cumH;
       if (!mustFill && cum + units[i].w / 2 > target) break;
       out[k].push(units[i]); cum += units[i].w; i++;
     }
   }
-  while (i < units.length) out[out.length - 1].push(units[i++]);
+  // Place any rounding remainder that still fits under total capacity into the
+  // last session (so an exact/under-capacity fit never silently drops its final
+  // item); genuine over-capacity surplus — when you are behind — stays
+  // unscheduled and shows up as backlog/behind.
+  while (i < units.length && cum + units[i].w / 2 <= totH) {
+    out[out.length - 1].push(units[i]); cum += units[i].w; i++;
+  }
   return out;
 }
 
@@ -637,8 +654,10 @@ function buildPlan() {
     const slots = slotsBy[st] || [];
     const units = streamUnits(st);
     const todo = units.filter(u => !unitDone(u));
+    let placed = 0;
     distribute(todo, slots).forEach((chunk, i) => {
       const s = slots[i];
+      placed += chunk.length;
       (byDate[s.date] = byDate[s.date] || {})[s.slot] = {stream: st, units: chunk};
     });
     const wLeft = todo.reduce((a, u) => a + u.w, 0);
@@ -653,6 +672,7 @@ function buildPlan() {
       hoursLeft: hLeft,
       ratio: basis ? now / basis : 0,                    // 1.0 = dead on plan
       stuck: !slots.length && todo.length > 0,
+      unscheduled: todo.length - placed,                 // surplus that didn't fit the remaining days
     };
   });
 
@@ -1186,7 +1206,19 @@ function slotMeta(day, slot) {
   const S  = STREAMS[st];
   const took = st !== primary ? ` ↺ from ${STREAMS[primary].label}` : '';
   return {label: `${S.label} · ${H}h${took}`, badge: S.badge,
-          content: carryTag(day, a) + renderUnits(st, a), stream: st};
+          content: carryTag(day, a) + backlogTag(day, st) + renderUnits(st, a), stream: st};
+}
+
+// This stream has more left than its remaining days can hold at a steady daily
+// budget, so the surplus isn't scheduled onto any day — it sits as backlog.
+// Say so on today's slot so a capped ~1h session isn't mistaken for "almost
+// done": the extra work is real and behind, just not crammed onto one day.
+function backlogTag(day, st) {
+  if (day.d !== todayStr()) return '';
+  const p = getPlan().pace[st];
+  if (!p || !p.unscheduled || p.unscheduled <= 0) return '';
+  const S = STREAMS[st];
+  return `<div class="slot-carry">⏳ ${p.unscheduled} more ${S.label} item${p.unscheduled > 1 ? 's' : ''} behind — too many left for the days remaining; work the <strong>${S.label}</strong> tab to catch up</div>`;
 }
 
 // When the items sitting in a slot were planned for an earlier day and are

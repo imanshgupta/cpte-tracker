@@ -314,6 +314,22 @@ t('day 1 SQL content is packed to ~1h, not thin-spread over every SQL day', () =
   const h = day1.units.reduce((a, u) => a + u.w, 0);
   ok(h > 0.6 && h <= g.SLOT_H.c, 'day 1 SQL load should be close to the 1h/day budget, got ' + h.toFixed(2) + 'h');
 });
+t('a behind stream caps each day at its budget — surplus shows as behind, not crammed', () => {
+  R();
+  global.__api.setToday(2026, 11, 13);   // most SQL rotation days are already in the past
+  const sqlSlots = sessionsFor('sql');
+  ok(sqlSlots.length > 0 && sqlSlots.length < 6, 'only a few SQL days remain: ' + sqlSlots.length);
+  sqlSlots.forEach(s => {
+    const h = s.units.reduce((a, u) => a + u.w, 0);
+    ok(h <= g.SQL_DAILY_H + 0.3, 'no SQL day is crammed past its ~1h budget: ' + s.date + ' = ' + h.toFixed(2) + 'h');
+  });
+  // the SQL that can't fit in the remaining days is left unscheduled (backlog),
+  // not piled onto those few days the way it used to be (25 items / ~8h a day)
+  const scheduled = sqlSlots.reduce((a, s) => a + s.units.length, 0);
+  const todo = f.streamUnits('sql').filter(u => !f.unitDone(u)).length;
+  ok(scheduled < todo, 'surplus SQL stays unscheduled: ' + scheduled + ' of ' + todo + ' placed');
+  global.__api.setToday(2026, 8, 24);
+});
 t('DSA frees up spare Slot A sessions once its own budget is covered', () => {
   const totalASlots = 188;
   const dsaHoursFull = f.streamUnits('dsa').reduce((a, u) => a + u.w, 0);
@@ -685,12 +701,24 @@ t('baseline: finished work is on time, open work gets a planned date', () => {
   ok(L.planned[f.unitKey(open0)] >= '2026-08-24', 'open item has a planned date');
   ok(!(f.unitKey(done0) in L.planned), 'done item has no planned date');
 });
-t('every open item is given a planned date at baseline', () => {
+t('items that fit are planned; over-capacity surplus falls back to plan end', () => {
   resetLedger();
   const L = global.__api.state.baseline;
-  const missing = ['dsa','java','spring','sql','sd','aws','clocal','handson']
-    .reduce((n, st) => n + f.streamUnits(st).filter(u => !(f.unitKey(u) in L.planned)).length, 0);
-  eq(missing, 0, 'items without a planned date');
+  // Streams whose content fits their sessions get every item a frozen date —
+  // nothing is crammed past a session's hour budget any more.
+  ['dsa','java','spring','sql','sd','aws','handson'].forEach(st => {
+    const miss = f.streamUnits(st).filter(u => !(f.unitKey(u) in L.planned)).length;
+    eq(miss, 0, st + ' is fully planned');
+  });
+  // Cloud is authored with more material (~24h) than its rotation can hold
+  // (~12h), so its surplus is intentionally left unscheduled instead of piled
+  // onto a day — it reads as backlog/behind.
+  const cloudMiss = f.streamUnits('clocal').filter(u => !(f.unitKey(u) in L.planned));
+  ok(cloudMiss.length > 0, 'cloud is over-subscribed, surplus left unscheduled');
+  // An unscheduled item still ledgers sanely: due by plan end, not late yet.
+  const e = f.ledgerOf(cloudMiss[0]);
+  eq(e.planned, g.PLAN_END, 'unscheduled item is due by the plan end date');
+  eq(e.late, 0, 'and is not counted late at baseline');
 });
 t('a miss shows as late starting tomorrow, growing by a day each day', () => {
   resetLedger();
@@ -832,6 +860,15 @@ t('Today surfaces carried-over work: a skipped day shows an overdue banner, not 
   const h = getEl('panel-today').innerHTML;
   ok(h.indexOf('Carried over') >= 0, 'overdue work is flagged as carried over on Today');
   ok(/Carried over · \d+ days behind/.test(h), 'and names how many days behind');
+});
+t('Today flags unscheduled backlog when a stream has more left than days hold', () => {
+  resetLedger();
+  global.__api.setToday(2026, 11, 13);            // SQL far behind: ~24h left, 3 days
+  f.invalidatePlan(); f.renderToday();
+  const h = getEl('panel-today').innerHTML;
+  ok(/more .*? items? behind/.test(h), 'backlog surplus is named on Today');
+  ok(h.indexOf('to catch up') >= 0, 'and points to the track tab to catch up');
+  global.__api.setToday(2026, 8, 24);
 });
 t('state shape is safe for old saves (no baseline) and for resetAll', () => {
   R();
