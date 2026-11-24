@@ -494,8 +494,27 @@ function isEvenDay(dateStr) {
 // Java/Spring run on a WEEKLY rhythm, not day-by-day: you study one language new
 // for a whole week, then switch. Week 0 (the plan's first week) is Java — the
 // plan opened on Java fundamentals — so even weeks are Java, odd weeks Spring.
-function weekIndex(dateStr) { return Math.floor(daysBetween(PLAN_START, dateStr) / 7); }
-function isJavaWeek(dateStr) { return weekIndex(dateStr) % 2 === 0; }
+// Parity is keyed to the AUTHORED study weeks (WEEKS), not calendar arithmetic:
+// the plan skips some dates, so daysBetween()/7 would drift and flip the
+// language mid-week. Each non-buffer week in order is one study week; even ones
+// (the 1st, 3rd, 5th…) are Java weeks, odd ones Spring. Buffer weeks don't study
+// Slot B, so they don't advance the count.
+let _weekParity = null;
+function weekParityMap() {
+  if (_weekParity) return _weekParity;
+  _weekParity = {};
+  let studyWk = 0;
+  WEEKS.forEach(w => {
+    w.days.forEach(d => { _weekParity[d.d] = w.isBuffer ? -1 : studyWk % 2; });
+    if (!w.isBuffer) studyWk++;
+  });
+  return _weekParity;
+}
+function isJavaWeek(dateStr) {
+  const p = weekParityMap()[dateStr];
+  if (p === undefined) return Math.floor(daysBetween(PLAN_START, dateStr) / 7) % 2 === 0;  // off-plan fallback
+  return p !== 1;   // 0 = Java study week, -1 = buffer (treat as Java, Slot B isn't studied then anyway)
+}
 
 // Which stream owns a slot. Slots that return null (mocks, behavioural work,
 // hands-on coding, revision) have no enumerable queue and keep the authored
@@ -1433,10 +1452,18 @@ function showWeek(idx) {
   const start = w.days[0]?.d || '';
   const end = w.days[w.days.length-1]?.d || '';
 
+  let focus = '';
+  if (!w.isBuffer && w.days.length) {
+    const java = isJavaWeek(w.days[0].d);
+    const studN = java ? 'Java' : 'Spring', revN = java ? 'Spring' : 'Java';
+    const col = java ? 'var(--java)' : 'var(--spring)';
+    focus = `<div class="wh-focus" style="color:${col}">📅 ${studN} week — study new ${studN}, revise last week's ${revN}</div>`;
+  }
   let html = `<div class="week-header">
     <div class="wh-phase">${w.phase.toUpperCase()}</div>
     <div class="wh-title">Week ${w.wn} · ${w.title}</div>
     <div class="wh-range">${start} → ${end} · ${w.days.length} days</div>
+    ${focus}
   </div>`;
 
   w.days.forEach(d => {

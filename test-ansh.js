@@ -49,7 +49,7 @@ const code = fs.readFileSync('ansh.js', 'utf8') + `
   f:{ getPlan, invalidatePlan, assignmentFor, streamForSlot, slotMeta, toggleSlot, setTrackTopic,
       toggleModule, toggleTopic, toggleVideo, renderToday, renderWeeks, showWeek, renderGFG, renderTrackTab, renderBudget,
       renderRules, renderPace, renderDayContent, showTab, findDay, daysBetween, todayStr,
-      isEvenDay, streamUnits, unitDone, renderWeekStrip, fmtH, resetAll, loadState, getDefaultState, courseUrlFor,
+      isEvenDay, isJavaWeek, streamUnits, unitDone, renderWeekStrip, fmtH, resetAll, loadState, getDefaultState, courseUrlFor,
       ensureLedger, createBaseline, resetBaseline, ledgerOf, streamLedger, lateItems, recentDone, renderProgress,
       ledgerChip, gfgTopicChip, renderLateBanner, unitKey, addDays,
       programFinish, renderFinishFlash, slipFlag },
@@ -298,6 +298,18 @@ t('Slot B is weekly (one language per week); A/C daily, D alternates', () => {
   eq(f.streamForSlot(f.findDay('2026-08-31').day, 'b'), 'spring', 'Aug 31 is week 1 → Spring');
   eq(f.streamForSlot(f.findDay('2026-08-24').day, 'd'), 'aws', 'even day → AWS refresher');
   eq(f.streamForSlot(f.findDay('2026-08-25').day, 'd'), 'sd', 'odd day → SD refresher');
+});
+t('the weekly Java/Spring flip aligns to authored weeks (no mid-week switch)', () => {
+  // The plan skips some calendar dates, so parity must follow the authored
+  // WEEKS, not daysBetween()/7 — otherwise a week flips language mid-week.
+  let prev = null;
+  g.WEEKS.forEach(w => {
+    if (w.isBuffer) return;
+    const vals = [...new Set(w.days.map(d => f.isJavaWeek(d.d)))];
+    eq(vals.length, 1, 'week ' + w.wn + ' is one language for the whole week');
+    if (prev !== null) ok(vals[0] !== prev, 'week ' + w.wn + ' flips from the previous study week');
+    prev = vals[0];
+  });
 });
 t('session counts: DSA & SQL every day, Slot B & D fully split', () => {
   const c = {};
