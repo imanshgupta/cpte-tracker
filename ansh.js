@@ -523,6 +523,16 @@ function isJavaWeek(dateStr) {
   return ((((o - javaAnchorOrdinal()) % 2) + 2) % 2) === 0;   // even from anchor = Java
 }
 
+// What a week is actually about now, instead of the stale authored lecture title
+// (the plan is dynamic, so a fixed "Spring L147-155" label no longer matches the
+// live queue). Reflects the weekly rhythm: a Java or Spring study week.
+function weekFocusLabel(w) {
+  if (w.isBuffer) return w.title || 'Buffer / Revision';
+  const first = w.days && w.days[0] && w.days[0].d;
+  if (!first) return w.title || '';
+  return isJavaWeek(first) ? 'Java week (revise Spring)' : 'Spring week (revise Java)';
+}
+
 // Which stream owns a slot. Slots that return null (mocks, behavioural work,
 // hands-on coding, revision) have no enumerable queue and keep the authored
 // prose from the day object.
@@ -1208,7 +1218,7 @@ function renderToday() {
     <div class="today-banner">
       <div class="tb-phase">● ACTIVE · WEEK ${week.wn} · ${week.phase.toUpperCase()}</div>
       <div class="tb-date">${fmtDate(today)}</div>
-      <div class="tb-week">${week.title} · ${daysLeft} days left</div>
+      <div class="tb-week">${weekFocusLabel(week)} · ${daysLeft} days left</div>
     </div>
     ${renderDayContent(day, week, false)}
     ${renderPace()}
@@ -1444,7 +1454,7 @@ function renderWeeks() {
 
   const opts = WEEKS.map((w, i) => {
     const cur = i === currentWi ? ' ◀ CURRENT' : '';
-    return `<option value="${i}"${i===currentWi?' selected':''}>Week ${w.wn} · ${w.title}${cur}</option>`;
+    return `<option value="${i}"${i===currentWi?' selected':''}>Week ${w.wn} · ${weekFocusLabel(w)}${cur}</option>`;
   }).join('');
 
   el.innerHTML = `
@@ -1473,7 +1483,7 @@ function showWeek(idx) {
   }
   let html = `<div class="week-header">
     <div class="wh-phase">${w.phase.toUpperCase()}</div>
-    <div class="wh-title">Week ${w.wn} · ${w.title}</div>
+    <div class="wh-title">Week ${w.wn} · ${weekFocusLabel(w)}</div>
     <div class="wh-range">${start} → ${end} · ${w.days.length} days</div>
     ${focus}
   </div>`;
