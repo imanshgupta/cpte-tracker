@@ -162,47 +162,50 @@ t('skipping 30 days keeps the backlog and raises density', () => {
   console.log('        ' + p1.sessions + ' sessions @' + f.fmtH(p1.load) + ' → ' + p2.sessions + ' @' + f.fmtH(p2.load) + '  (' + p2.ratio.toFixed(1) + '×)');
 });
 t('a stream with no sessions left is flagged stranded, not silently dropped', () => {
-  global.__api.setToday(2026, 12, 23);
-  const p = f.getPlan().pace.sql;
-  eq(p.sessions, 0, 'SQL sessions all in the past');
-  ok(p.left > 0 && p.stuck === true, 'should be stuck');
-  console.log('        SQL: ' + p.left + ' stranded, 0 sessions remain');
-  global.__api.setToday(2026, 8, 24);
+  R();
+  // Cloud has no dedicated block in the focused plan — it only ever gets a
+  // genuine last-resort handover slot — so at baseline it is fully stranded.
+  const p = f.getPlan().pace.clocal;
+  ok(p.left > 0 && p.sessions === 0 && p.stuck === true, 'Cloud stranded: ' + p.left + ' left, ' + p.sessions + ' sessions');
+  global.__api.setToday(2026, 8, 24);   // restore the baseline day for later sections
 });
 
 // ══════════════════════════════════════════════════════════════════════════
 S('3. Handover — when a pipe runs dry');
-t('Java empty → Spring takes all 188 Slot B sessions', () => {
+t('Java empty → Spring takes all Slot B sessions (both week types)', () => {
   R();
-  eq(f.getPlan().pace.spring.sessions, 94, 'baseline Spring sessions');
+  const base = f.getPlan().pace.spring.sessions;
+  ok(base > 60 && base < 120, 'baseline Spring owns roughly half the weeks: ' + base);
   g.TRACK_DEFS.java.groups.forEach(grp => markTrackGroup('java', grp.id));
   f.invalidatePlan();
   eq(f.getPlan().pace.java.sessions, 0, 'Java keeps none');
-  eq(f.getPlan().pace.spring.sessions, 188, 'Spring takes both day types');
-  const m = f.slotMeta(f.findDay('2026-08-24').day, 'b');
+  // Spring takes all 188 Slot B days AND inherits DSA's spare Slot-A capacity
+  // (dsa → java(done) → spring under the core-first handover), so it exceeds 188.
+  ok(f.getPlan().pace.spring.sessions >= 188, 'Spring takes all of Slot B plus spare: ' + f.getPlan().pace.spring.sessions);
+  const m = f.slotMeta(f.findDay('2026-08-24').day, 'b');   // Aug 24 is a Java week
   ok(m.label.indexOf('Spring') === 0 && m.label.indexOf('↺ from Java') > 0, 'label marks handover: ' + m.label);
 });
-t('AWS empty → System Design takes Slot D too, plus DSA\'s spare Slot A capacity', () => {
+t('AWS empty → System Design takes the whole Slot D refresher', () => {
   R();
+  const baseSd = f.getPlan().pace.sd.sessions, baseAws = f.getPlan().pace.aws.sessions;
   g.TRACK_DEFS.cloud.groups.forEach(grp => { if (grp.id.indexOf('cl-saa-') === 0) markTrackGroup('cloud', grp.id); });
   f.invalidatePlan();
-  // 126 baseline + 94 from AWS's Slot D + 124 Slot A sessions DSA doesn't
-  // need at ~1.5h/day (188 total minus its own ~64) + 2 Slot C sessions
-  // SQL doesn't need (23.9h at 1h/day = 24 of its 26 days), both first in
-  // their own handover chains.
-  eq(f.getPlan().pace.sd.sessions, 346, 'SD gets its 126 + 94 AWS + 124 spare DSA + 2 spare SQL slots');
-  const m = f.slotMeta(f.findDay('2026-08-24').day, 'd');
+  eq(f.getPlan().pace.aws.sessions, 0, 'AWS keeps none');
+  eq(f.getPlan().pace.sd.sessions, baseSd + baseAws, 'SD takes AWS\'s Slot D days on top of its own');
+  const m = f.slotMeta(f.findDay('2026-08-24').day, 'd');   // Aug 24 even → was AWS
   ok(m.label.indexOf('System Design') === 0 && m.label.indexOf('↺') > 0, 'label: ' + m.label);
 });
-t('both pipes dry → falls through the chain, no idle session', () => {
-  ['java','spring','sd'].forEach(tr => g.TRACK_DEFS[tr].groups.forEach(grp => markTrackGroup(tr, grp.id)));
-  g.TRACK_DEFS.cloud.groups.forEach(grp => markTrackGroup('cloud', grp.id));
+t('both languages dry → Slot B falls through the core chain, no idle session', () => {
+  R();
+  ['java','spring'].forEach(tr => g.TRACK_DEFS[tr].groups.forEach(grp => markTrackGroup(tr, grp.id)));
   f.invalidatePlan();
   const mb = f.slotMeta(f.findDay('2026-08-24').day, 'b');
-  const md = f.slotMeta(f.findDay('2026-08-24').day, 'd');
-  ok(mb.stream === 'dsa', 'Slot B falls to DSA, got ' + mb.stream);
-  ok(md.stream === 'dsa' || md.stream === 'clocal', 'Slot D falls through, got ' + md.stream);
-  ok(f.getPlan().pace.dsa.sessions > 188, 'DSA gained sessions: ' + f.getPlan().pace.dsa.sessions);
+  eq(mb.stream, 'handson', 'Slot B falls to Hands-on (next core with work), got ' + mb.stream);
+  // and once hands-on is also done it keeps falling down the chain, never idle
+  g.TRACK_DEFS.handson.groups.forEach(grp => markTrackGroup('handson', grp.id));
+  f.invalidatePlan();
+  const mb2 = f.slotMeta(f.findDay('2026-08-24').day, 'b');
+  ok(mb2.stream && mb2.stream !== 'java' && mb2.stream !== 'spring', 'still resolves to a stream with work: ' + mb2.stream);
 });
 t('everything done → slot reports a free session rather than erroring', () => {
   ['java','spring','sd','sql'].forEach(tr => g.TRACK_DEFS[tr].groups.forEach(grp => markTrackGroup(tr, grp.id)));
@@ -229,9 +232,10 @@ t('a ticked day keeps showing what was done (does not re-fill)', () => {
 });
 t('unticking restores the lessons to the queue', () => {
   const n = f.getPlan().pace.aws.left;
+  const restored = global.__api.state.dailyLog['2026-08-24'].d.units.length;
   f.toggleSlot('2026-08-24', 'd');
   f.invalidatePlan();
-  eq(f.getPlan().pace.aws.left, n + 4, 'four lessons returned');
+  eq(f.getPlan().pace.aws.left, n + restored, restored + ' lessons returned');
   ok(!global.__api.state.dailyChecks['2026-08-24'].d, 'unchecked');
   ok(!global.__api.state.dailyLog['2026-08-24'].d, 'log cleared');
 });
@@ -250,53 +254,59 @@ t('unticking Slot A rolls the video completions back', () => {
 });
 t('marking on the track page shifts the next session (the "I already know this" path)', () => {
   R();
-  const d3 = f.assignmentFor('2026-08-26', 'b').units.map(u => u.id).join(',');
+  const firstBatch = f.assignmentFor('2026-08-24', 'b').units.map(u => u.id);
   f.assignmentFor('2026-08-24', 'b').units.forEach(u => f.setTrackTopic('java', u.id, 'done', u.group, true));
   f.invalidatePlan();
   const now = f.assignmentFor('2026-08-24', 'b').units;
-  const day1WasDone = global.__api.state.tracks.java;
-  ok(!now.some(u => day1WasDone[u.id] === 'done'), 'day 1 must not re-show completed topics');
   ok(now.length > 0, 'day 1 still has work');
-  ok(now[0].id === d3.split(',')[0], 'day 1 now leads with what day 3 previously held: got '
-     + now[0].id + ', expected ' + d3.split(',')[0]);
+  ok(!now.some(u => firstBatch.includes(u.id)), 'day 1 must not re-show the completed batch');
+  const firstUndone = f.streamUnits('java').find(u => !f.unitDone(u));
+  eq(now[0].id, firstUndone.id, 'day 1 now leads with the next still-undone topic');
   console.log('        day 1 now starts at: ' + now[0].name.slice(0, 46));
 });
-t('ticking a prose slot (mock/revision) works and touches no queue', () => {
+t('Slot C is the SQL focus block — stream-backed every day, ticking completes SQL', () => {
   R();
-  const day = f.findDay('2026-08-27').day;      // rt:'revision' → genuine prose Slot C
-  eq(f.streamForSlot(day, 'c'), null, 'a revision Slot C is prose');
-  f.toggleSlot('2026-08-27', 'c');
-  eq(global.__api.state.dailyChecks['2026-08-27'].c, true, 'checked');
-  ok(!global.__api.state.dailyLog['2026-08-27'] || !global.__api.state.dailyLog['2026-08-27'].c, 'nothing logged');
-  f.toggleSlot('2026-08-27', 'c');
-  ok(!global.__api.state.dailyChecks['2026-08-27'].c, 'unchecked cleanly');
+  const day = f.findDay('2026-08-24').day;
+  eq(f.streamForSlot(day, 'c'), 'sql', 'Slot C is the SQL block every day now');
+  const units = f.assignmentFor('2026-08-24', 'c').units;
+  ok(units.length > 0 && units.every(u => u.track === 'sql'), 'SQL units fill the block');
+  f.toggleSlot('2026-08-24', 'c');
+  units.forEach(u => eq(global.__api.state.tracks.sql[u.id], 'done', u.id + ' done'));
 });
-t('hands-on days are now a tracked stream in Slot C, not prose', () => {
+t('Hands-on stays a tracked stream, fed by handover once SQL clears', () => {
   R();
-  const day = f.findDay('2026-08-24').day;       // rt:'hands-on'
-  eq(f.streamForSlot(day, 'c'), 'handson', 'hands-on Slot C is stream-backed');
+  const day = f.findDay('2026-08-24').day;
+  ok(f.streamForSlot(day, 'c') !== 'handson', 'hands-on is no longer pinned to a fixed slot');
   const units = f.streamUnits('handson');
-  ok(units.length >= 40, 'handson has a real backlog of exercises: ' + units.length);
-  ok(units.every(u => u.track === 'handson'), 'every handson unit belongs to the handson track');
+  ok(units.length >= 40 && units.every(u => u.track === 'handson'), 'handson keeps its exercise backlog: ' + units.length);
+  g.TRACK_DEFS.sql.groups.forEach(grp => markTrackGroup('sql', grp.id));   // clear SQL
+  f.invalidatePlan();
+  eq(f.slotMeta(day, 'c').stream, 'handson', 'SQL done → the block flows to Hands-on');
 });
 
 // ══════════════════════════════════════════════════════════════════════════
 S('5. Rotation & slot structure');
-t('slots alternate strictly from day 1', () => {
+t('Slot B is weekly (one language per week); A/C daily, D alternates', () => {
   R();
-  const exp = [['java','aws'],['spring','sd'],['java','aws'],['spring','sd']];
-  ['2026-08-24','2026-08-25','2026-08-26','2026-08-27'].forEach((d, i) => {
+  // Aug 24–30 is week 0 → Java all week; Slot A = DSA, Slot C = SQL every day
+  ['2026-08-24','2026-08-25','2026-08-26','2026-08-27'].forEach(d => {
     const day = f.findDay(d).day;
-    eq(f.streamForSlot(day, 'b'), exp[i][0], d + ' slot B');
-    eq(f.streamForSlot(day, 'd'), exp[i][1], d + ' slot D');
+    eq(f.streamForSlot(day, 'b'), 'java', d + ' slot B is Java (week 0)');
     eq(f.streamForSlot(day, 'a'), 'dsa', d + ' slot A');
+    eq(f.streamForSlot(day, 'c'), 'sql', d + ' slot C');
   });
+  eq(f.streamForSlot(f.findDay('2026-08-31').day, 'b'), 'spring', 'Aug 31 is week 1 → Spring');
+  eq(f.streamForSlot(f.findDay('2026-08-24').day, 'd'), 'aws', 'even day → AWS refresher');
+  eq(f.streamForSlot(f.findDay('2026-08-25').day, 'd'), 'sd', 'odd day → SD refresher');
 });
-t('session counts are 188 / 94 / 94 / 94 / 94', () => {
+t('session counts: DSA & SQL every day, Slot B & D fully split', () => {
   const c = {};
   g.WEEKS.forEach(w => { if (w.isBuffer) return; w.days.forEach(d => ['a','b','c','d'].forEach(sl => {
     const st = f.streamForSlot(d, sl); if (st) c[sl + ':' + st] = (c[sl + ':' + st] || 0) + 1; })); });
-  eq(c['a:dsa'], 188); eq(c['b:java'], 94); eq(c['b:spring'], 94);
+  eq(c['a:dsa'], 188, 'DSA every day');
+  eq(c['c:sql'], 188, 'SQL focus block every day');
+  eq((c['b:java'] || 0) + (c['b:spring'] || 0), 188, 'Slot B fully split across Java/Spring weeks');
+  eq((c['d:aws'] || 0) + (c['d:sd'] || 0), 188, 'Slot D fully split across AWS/SD');
   eq(c['d:aws'], 94); eq(c['d:sd'], 94);
 });
 t('slot hours total 8h/day', () => {
@@ -316,15 +326,15 @@ t('day 1 SQL content is packed to ~1h, not thin-spread over every SQL day', () =
 });
 t('a behind stream caps each day at its budget — surplus shows as behind, not crammed', () => {
   R();
-  global.__api.setToday(2026, 11, 13);   // most SQL rotation days are already in the past
+  global.__api.setToday(2027, 2, 23);   // ~10 days to plan end, SQL still untouched → more work than days
   const sqlSlots = sessionsFor('sql');
-  ok(sqlSlots.length > 0 && sqlSlots.length < 6, 'only a few SQL days remain: ' + sqlSlots.length);
+  ok(sqlSlots.length > 0 && sqlSlots.length < 16, 'fewer days left than SQL needs: ' + sqlSlots.length);
   sqlSlots.forEach(s => {
     const h = s.units.reduce((a, u) => a + u.w, 0);
-    ok(h <= g.SQL_DAILY_H + 0.3, 'no SQL day is crammed past its ~1h budget: ' + s.date + ' = ' + h.toFixed(2) + 'h');
+    ok(h <= g.SQL_DAILY_H + 0.3, 'no SQL day is crammed past its ~1.5h budget: ' + s.date + ' = ' + h.toFixed(2) + 'h');
   });
   // the SQL that can't fit in the remaining days is left unscheduled (backlog),
-  // not piled onto those few days the way it used to be (25 items / ~8h a day)
+  // not piled onto those days the way the old code did (25 items / ~8h a day)
   const scheduled = sqlSlots.reduce((a, s) => a + s.units.length, 0);
   const todo = f.streamUnits('sql').filter(u => !f.unitDone(u)).length;
   ok(scheduled < todo, 'surplus SQL stays unscheduled: ' + scheduled + ' of ' + todo + ' placed');
@@ -557,8 +567,9 @@ t('phase table covers all four phases plus buffer', () => {
 t('rules documents 4 slots, handover and no stale weekday rotation', () => {
   f.renderRules();
   const h = getEl('panel-rules').innerHTML;
-  ok(h.indexOf('DAILY 4-SLOT STRUCTURE (8 hours every day)') > 0, '4-slot header');
+  ok(h.indexOf('3 BIG BLOCKS') > 0 && h.indexOf('8 hours') > 0, 'structure header');
   ok(h.indexOf('HANDOVER') > 0, 'handover block');
+  ok(h.indexOf('WEEKLY JAVA / SPRING') > 0, 'weekly rhythm documented');
   ok(h.indexOf('Mon / Wed / Fri') < 0, 'stale weekday rule removed');
   ok(h.toLowerCase().indexOf('genpact') < 0, 'genpact removed');
 });
@@ -863,7 +874,7 @@ t('Today surfaces carried-over work: a skipped day shows an overdue banner, not 
 });
 t('Today flags unscheduled backlog when a stream has more left than days hold', () => {
   resetLedger();
-  global.__api.setToday(2026, 11, 13);            // SQL far behind: ~24h left, 3 days
+  global.__api.setToday(2027, 2, 23);             // SQL untouched, ~10 days left → more than fits
   f.invalidatePlan(); f.renderToday();
   const h = getEl('panel-today').innerHTML;
   ok(/more .*? items? behind/.test(h), 'backlog surplus is named on Today');

@@ -436,16 +436,20 @@ function daysBetween(a, b) {
 // completes exactly what that slot was showing) or from a track/GFG page
 // (marking items directly); both feed the same queues.
 
-const SLOT_H = {a: 2, b: 2.5, c: 1.5, d: 2};
+// Three big focus blocks a day — DSA, Java/Spring, SQL — plus a 1h AWS/SD
+// refresher. Java/Spring runs a weekly rhythm (see streamForSlot); SQL gets its
+// own daily block; AWS and System Design share the small rotational slot.
+const SLOT_H = {a: 2, b: 3, c: 2, d: 1};
 // Slot A is a 2h block, but only real GFG video runtime is auto-scheduled —
 // ~1.5h/day of watching, leaving the remaining ~30min for practicing the
 // problems yourself (untracked). Once the video backlog is empty the slot
 // hands over at the full 2h, same as every other stream.
 const GFG_DAILY_VIDEO_H = 1.5;
-// Slot C is a 1.5h block on SQL days, but only 1h of real course video is
-// auto-scheduled — the rest is yours to practice queries. Once the course
-// backlog is empty the slot hands over at the full 1.5h, same as DSA above.
-const SQL_DAILY_H = 1;
+// Slot C is now a 2h daily SQL focus block, but ~1.5h of real course video is
+// auto-scheduled — the rest is yours to practice queries. Once the SQL course
+// backlog is empty the block hands over to Hands-on (then the rest of the
+// core chain), so the focus block is never idle.
+const SQL_DAILY_H = 1.5;
 
 const STREAMS = {
   dsa:    {label: 'DSA · GFG',      badge: 'dsa'},
@@ -466,15 +470,20 @@ const STREAMS = {
 // and Slot D an AWS/SD pair, so the partner takes the whole flow first; the
 // rest of the chain is a last resort so no session is ever idle while work
 // remains anywhere.
+// Priority order when a stream's backlog runs dry: its sessions pass to the next
+// stream that still has work. Resorted around the focus: the cores
+// (java, spring, dsa, handson, sql) come first everywhere, then the SD/AWS
+// refresher, and Cloud (clocal) last. So freed time always pools into the
+// things being focused on, and Cloud only ever gets a genuine last-resort slot.
 const HANDOVER = {
-  java:   ['spring', 'sd', 'aws', 'dsa'],
-  spring: ['java', 'sd', 'aws', 'dsa'],
-  aws:    ['sd', 'clocal', 'java', 'spring', 'dsa'],
-  sd:     ['aws', 'java', 'spring', 'dsa'],
-  sql:    ['sd', 'java', 'spring', 'dsa'],
-  clocal: ['aws', 'sd', 'dsa'],
-  dsa:    ['sd', 'java', 'spring', 'aws'],
-  handson:['spring', 'java', 'sd', 'aws', 'dsa'],
+  java:   ['spring', 'handson', 'dsa', 'sql', 'sd', 'aws', 'clocal'],
+  spring: ['java', 'handson', 'dsa', 'sql', 'sd', 'aws', 'clocal'],
+  dsa:    ['java', 'spring', 'handson', 'sql', 'sd', 'aws', 'clocal'],
+  sql:    ['handson', 'java', 'spring', 'dsa', 'sd', 'aws', 'clocal'],
+  handson:['java', 'spring', 'dsa', 'sql', 'sd', 'aws', 'clocal'],
+  sd:     ['aws', 'java', 'spring', 'handson', 'dsa', 'sql', 'clocal'],
+  aws:    ['sd', 'java', 'spring', 'handson', 'dsa', 'sql', 'clocal'],
+  clocal: ['handson', 'java', 'spring', 'dsa', 'sql', 'sd', 'aws'],
 };
 
 function isEvenDay(dateStr) {
@@ -482,15 +491,20 @@ function isEvenDay(dateStr) {
   return ((i % 2) + 2) % 2 === 0;
 }
 
+// Java/Spring run on a WEEKLY rhythm, not day-by-day: you study one language new
+// for a whole week, then switch. Week 0 (the plan's first week) is Java — the
+// plan opened on Java fundamentals — so even weeks are Java, odd weeks Spring.
+function weekIndex(dateStr) { return Math.floor(daysBetween(PLAN_START, dateStr) / 7); }
+function isJavaWeek(dateStr) { return weekIndex(dateStr) % 2 === 0; }
+
 // Which stream owns a slot. Slots that return null (mocks, behavioural work,
 // hands-on coding, revision) have no enumerable queue and keep the authored
 // prose from the day object.
 function streamForSlot(day, slot) {
-  const even = isEvenDay(day.d);
-  if (slot === 'a') return 'dsa';                                    // every day
-  if (slot === 'b') return even ? 'java' : 'spring';                 // alternating
-  if (slot === 'd') return even ? 'aws' : 'sd';                      // alternating
-  if (slot === 'c') return ({sql: 'sql', sd: 'sd', cloud: 'clocal', 'hands-on': 'handson'})[day.rt] || null;
+  if (slot === 'a') return 'dsa';                                    // DSA every day
+  if (slot === 'b') return isJavaWeek(day.d) ? 'java' : 'spring';    // one language per week
+  if (slot === 'c') return 'sql';                                    // SQL focus block (hands over to Hands-on once done)
+  if (slot === 'd') return isEvenDay(day.d) ? 'aws' : 'sd';          // 1h AWS/SD refresher
   return null;
 }
 
@@ -1206,7 +1220,25 @@ function slotMeta(day, slot) {
   const S  = STREAMS[st];
   const took = st !== primary ? ` ↺ from ${STREAMS[primary].label}` : '';
   return {label: `${S.label} · ${H}h${took}`, badge: S.badge,
-          content: carryTag(day, a) + backlogTag(day, st) + renderUnits(st, a), stream: st};
+          content: revisionTag(day, slot) + carryTag(day, a) + backlogTag(day, st) + renderUnits(st, a), stream: st};
+}
+
+// The Java/Spring block studies one language new each week; the other language
+// is revised that same week. There's no separate revision queue (you can't
+// "re-tick" finished topics), so this surfaces it as a prompt: the actual
+// topics you completed in the other language over the last 7 days, to re-cover.
+// Today-only, Slot B only, and silent until there is a prior week to revise.
+function revisionTag(day, slot) {
+  if (slot !== 'b' || day.d !== todayStr() || !STATE.baseline) return '';
+  const studying = isJavaWeek(day.d) ? 'java' : 'spring';
+  const revise = studying === 'java' ? 'spring' : 'java';
+  const since = addDays(day.d, -7), done = STATE.doneOn || {};
+  const names = streamUnits(revise).filter(u => {
+    const on = done[unitKey(u)];
+    return on && on !== 'pre' && on >= since && on < day.d;
+  }).map(u => u.name);
+  if (!names.length) return '';
+  return `<div class="slot-revise">🔁 Revise last week's ${STREAMS[revise].label} (${names.length}) — re-cover these before new material:<div class="sr-list">${names.join(' · ')}</div></div>`;
 }
 
 // This stream has more left than its remaining days can hold at a steady daily
@@ -1619,11 +1651,11 @@ function renderBudget() {
     if (w.isBuffer) return;
     w.days.forEach(d => {
       planDays++;
-      add('DSA (GFG)', 2);                              // Slot A
-      add(LBL[d.mt] || 'Buffer/Revision', 2.5);         // Slot B
-      add(LBL[d.rt] || 'Buffer/Revision', 1.5);         // Slot C
-      const i = daysBetween(PLAN_START, d.d);           // Slot D
-      add(((i % 2) + 2) % 2 === 0 ? 'AWS (SAA course)' : 'System Design', 2);
+      add('DSA (GFG)', 2);                                      // Slot A
+      add(isJavaWeek(d.d) ? LBL.java : LBL.spring, 3);          // Slot B — weekly Java/Spring
+      add(LBL.sql, 2);                                          // Slot C — SQL focus (→ Hands-on later)
+      const i = daysBetween(PLAN_START, d.d);                   // Slot D — 1h AWS/SD refresher
+      add(((i % 2) + 2) % 2 === 0 ? 'AWS (SAA course)' : 'System Design', 1);
     });
   });
 
@@ -1693,37 +1725,31 @@ function renderBudget() {
 function renderRules() {
   document.getElementById('panel-rules').innerHTML = `
     <div class="rule-block">
-      <div class="rule-title">DAILY 4-SLOT STRUCTURE (8 hours every day)</div>
+      <div class="rule-title">DAILY STRUCTURE · 3 BIG BLOCKS + 1h REFRESHER (8 hours)</div>
       <div class="rule-item"><span class="rule-bullet">A</span><div><strong style="color:var(--dsa)">DSA · 2h</strong> — GFG Complete Interview Prep videos, real durations, auto-paced to ~1.5h/day; the rest of the slot is your own problem practice. Daily, no exceptions.</div></div>
-      <div class="rule-item"><span class="rule-bullet">B</span><div><strong style="color:var(--java)">JAVA ↔ SPRING · 2.5h</strong> — alternating days. Java on even day numbers, Spring on odd.</div></div>
-      <div class="rule-item"><span class="rule-bullet">C</span><div><strong style="color:var(--sql)">ROTATING · 1.5h</strong> — SQL (Mon/Wed) · Hands-on (Tue/Thu) · System Design (Fri) · Cloud/Revision (Sat/Sun). On SQL days, course video is auto-paced to ~1h; the rest is your own query practice.</div></div>
-      <div class="rule-item"><span class="rule-bullet">D</span><div><strong style="color:var(--cloud)">AWS ↔ SYSTEM DESIGN · 2h</strong> — alternating days. AWS on even day numbers, System Design on odd.</div></div>
+      <div class="rule-item"><span class="rule-bullet">B</span><div><strong style="color:var(--java)">JAVA / SPRING · 3h</strong> — a <strong>weekly</strong> rhythm: you study one language new for the whole week (even weeks Java, odd weeks Spring), and <strong>revise last week's other language</strong> — those topics are listed on the block each day.</div></div>
+      <div class="rule-item"><span class="rule-bullet">C</span><div><strong style="color:var(--sql)">SQL FOCUS · 2h</strong> — SQL every day, course video auto-paced to ~1.5h with the rest your own query practice. Once the SQL course is finished this block rolls into <strong style="color:var(--handson)">Hands-on</strong> coding.</div></div>
+      <div class="rule-item"><span class="rule-bullet">D</span><div><strong style="color:var(--cloud)">AWS + SYSTEM DESIGN · 1h</strong> — a light refresher / change of pace, alternating by day (AWS even, SD odd).</div></div>
     </div>
     <div class="rule-block">
       <div class="rule-title">HANDOVER · WHAT HAPPENS WHEN A STREAM RUNS OUT</div>
-      <div class="rule-item"><span class="rule-bullet">→</span><div>Slot B is a <strong style="color:var(--java)">Java</strong>/<strong style="color:var(--spring)">Spring</strong> pair and Slot D an <strong style="color:var(--cloud)">AWS</strong>/<strong style="color:var(--sd)">System Design</strong> pair. Two pipes into one slot.</div></div>
-      <div class="rule-item"><span class="rule-bullet">→</span><div>Empty one and its partner takes the whole flow — finish Java and every Slot B becomes Spring, so Spring runs <strong>2.5h every day</strong> instead of every other day.</div></div>
-      <div class="rule-item"><span class="rule-bullet">→</span><div>Drain both and the slot falls through to whatever still has a backlog (SD → AWS → DSA). A session is never left idle while work remains anywhere.</div></div>
-      <div class="rule-item"><span class="rule-bullet">→</span><div>A handed-over slot is marked <strong>↺</strong> so you can see where the time came from.</div></div>
+      <div class="rule-item"><span class="rule-bullet">→</span><div>Freed time always flows to the <strong>focus</strong> first: Java, Spring, DSA, Hands-on, SQL — then the SD/AWS refresher, and Cloud last.</div></div>
+      <div class="rule-item"><span class="rule-bullet">→</span><div>Finish this week's language early and the block picks up the next core with work (its partner, then Hands-on). Clear SQL and the SQL block becomes Hands-on.</div></div>
+      <div class="rule-item"><span class="rule-bullet">→</span><div>A session is never left idle while work remains anywhere; a handed-over slot is marked <strong>↺</strong> so you can see where the time came from.</div></div>
     </div>
     <div class="rule-block">
-      <div class="rule-title">SLOT D · AWS TRACK (alternate days, 94 sessions · 188h)</div>
-      <div class="rule-item"><span class="rule-bullet">→</span><div>Adrian Cantrill <strong>SAA-C03</strong> — all 339 lessons (60.6h of video) spread evenly across every AWS day.</div></div>
-      <div class="rule-item"><span class="rule-bullet">→</span><div>Budget ≈ <strong>39 min of video per session</strong>. The rest of the 2h is for the [DEMO] builds, notes, and the section quiz.</div></div>
+      <div class="rule-title">SLOT D · AWS + SYSTEM DESIGN REFRESHER (1h, alternating)</div>
+      <div class="rule-item"><span class="rule-bullet">→</span><div>A deliberately light <strong>1h</strong> change-of-pace block: AWS on even days, System Design on odd. The focus is the three big blocks above — this just keeps AWS/SD warm.</div></div>
+      <div class="rule-item"><span class="rule-bullet">→</span><div>Adrian Cantrill <strong>SAA-C03</strong> lessons are auto-paced across the AWS days; at 1h it won't all fit before the exam window, so treat it as review, not primary study.</div></div>
       <div class="rule-item"><span class="rule-bullet">→</span><div>Do every <strong>[DEMO]</strong> hands-on in your own account. Watching a demo does not count as done.</div></div>
       <div class="rule-item"><span class="rule-bullet">→</span><div><strong>Tear down billable resources</strong> at the end of each session — NAT Gateways, RDS instances, and EKS clusters cost money while idle.</div></div>
       <div class="rule-item"><span class="rule-bullet">→</span><div>Ticking Slot D auto-marks that day's lessons on the <strong>Cloud tab</strong>.</div></div>
     </div>
     <div class="rule-block">
-      <div class="rule-title">THE TWO DAY TYPES</div>
-      <div class="rule-item"><span class="rule-bullet">A</span><div><strong style="color:var(--java)">Java</strong> + <strong style="color:var(--cloud)">AWS</strong> day — Slot B pulls Java (Parts A–F), Slot D pulls the SAA course. 94 of them.</div></div>
-      <div class="rule-item"><span class="rule-bullet">B</span><div><strong style="color:var(--spring)">Spring</strong> + <strong style="color:var(--sd)">System Design</strong> day — Slot B pulls Spring (L1–L200), Slot D pulls SD. 94 of them.</div></div>
-      <div class="rule-item"><span class="rule-bullet">→</span><div>They alternate strictly, starting with a Java + AWS day. Weekdays are irrelevant — the rotation never depends on which day of the week it is.</div></div>
-    </div>
-    <div class="rule-block">
-      <div class="rule-title">SLOT C · THE ONLY PER-DAY SLOT</div>
-      <div class="rule-item"><span class="rule-bullet">→</span><div><strong style="color:var(--sql)">SQL</strong>, <strong style="color:var(--sd)">System Design</strong> and <strong style="color:var(--cloud)">Docker/K8s</strong> days pull from their queues like every other stream.</div></div>
-      <div class="rule-item"><span class="rule-bullet">→</span><div><strong>Hands-on, mocks, behavioural and revision</strong> days keep their written brief — there is no list to work through, so nothing to schedule.</div></div>
+      <div class="rule-title">THE WEEKLY JAVA / SPRING RHYTHM</div>
+      <div class="rule-item"><span class="rule-bullet">1</span><div><strong style="color:var(--java)">Java week</strong> (even weeks) — study new Java in Slot B all week, and revise the <strong style="color:var(--spring)">Spring</strong> you learned last week (topics listed on the block).</div></div>
+      <div class="rule-item"><span class="rule-bullet">2</span><div><strong style="color:var(--spring)">Spring week</strong> (odd weeks) — study new Spring all week, and revise last week's <strong style="color:var(--java)">Java</strong>.</div></div>
+      <div class="rule-item"><span class="rule-bullet">→</span><div>Revision is a prompt, not a checklist — it lists the exact topics you ticked in the other language over the last 7 days, to re-cover before new material.</div></div>
     </div>
     <div class="rule-block">
       <div class="rule-title">HARD RULES</div>
