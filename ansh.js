@@ -440,11 +440,11 @@ function daysBetween(a, b) {
 // refresher. Java/Spring runs a weekly rhythm (see streamForSlot); SQL gets its
 // own daily block; AWS and System Design share the small rotational slot.
 const SLOT_H = {a: 2, b: 3, c: 2, d: 1};
-// Slot A is a 2h block, but only real GFG video runtime is auto-scheduled —
-// ~1.5h/day of watching, leaving the remaining ~30min for practicing the
-// problems yourself (untracked). Once the video backlog is empty the slot
-// hands over at the full 2h, same as every other stream.
-const GFG_DAILY_VIDEO_H = 1.5;
+// Slot A is a 2h block split in half: only ~1h/day of real GFG video runtime is
+// auto-scheduled, leaving the other 1h for practicing the problems yourself
+// (untracked). Once the video backlog is empty the slot hands over at the full
+// 2h, same as every other stream.
+const GFG_DAILY_VIDEO_H = 1;
 // Slot C is now a 2h daily SQL focus block, but ~1.5h of real course video is
 // auto-scheduled — the rest is yours to practice queries. Once the SQL course
 // backlog is empty the block hands over to Hands-on (then the rest of the
@@ -1726,7 +1726,7 @@ function renderRules() {
   document.getElementById('panel-rules').innerHTML = `
     <div class="rule-block">
       <div class="rule-title">DAILY STRUCTURE · 3 BIG BLOCKS + 1h REFRESHER (8 hours)</div>
-      <div class="rule-item"><span class="rule-bullet">A</span><div><strong style="color:var(--dsa)">DSA · 2h</strong> — GFG Complete Interview Prep videos, real durations, auto-paced to ~1.5h/day; the rest of the slot is your own problem practice. Daily, no exceptions.</div></div>
+      <div class="rule-item"><span class="rule-bullet">A</span><div><strong style="color:var(--dsa)">DSA · 2h</strong> — GFG videos auto-paced to <strong>~1h/day</strong>, and the other <strong>1h is your own problem practice</strong> (untracked). Daily, no exceptions.</div></div>
       <div class="rule-item"><span class="rule-bullet">B</span><div><strong style="color:var(--java)">JAVA / SPRING · 3h</strong> — a <strong>weekly</strong> rhythm: you study one language new for the whole week (even weeks Java, odd weeks Spring), and <strong>revise last week's other language</strong> — those topics are listed on the block each day.</div></div>
       <div class="rule-item"><span class="rule-bullet">C</span><div><strong style="color:var(--sql)">SQL FOCUS · 2h</strong> — SQL every day, course video auto-paced to ~1.5h with the rest your own query practice. Once the SQL course is finished this block rolls into <strong style="color:var(--handson)">Hands-on</strong> coding.</div></div>
       <div class="rule-item"><span class="rule-bullet">D</span><div><strong style="color:var(--cloud)">AWS + SYSTEM DESIGN · 1h</strong> — a light refresher / change of pace, alternating by day (AWS even, SD odd).</div></div>

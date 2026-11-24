@@ -312,11 +312,11 @@ t('session counts: DSA & SQL every day, Slot B & D fully split', () => {
 t('slot hours total 8h/day', () => {
   eq(g.SLOT_H.a + g.SLOT_H.b + g.SLOT_H.c + g.SLOT_H.d, 8);
 });
-t('day 1 DSA content is packed to ~1.5h, not thin-spread over all 188 sessions', () => {
+t('day 1 DSA content is packed to ~1h, not thin-spread over all 188 sessions', () => {
   R();
   const day1 = sessionsFor('dsa')[0];
   const h = day1.units.reduce((a, u) => a + u.w, 0);
-  ok(h > 1.2 && h <= g.SLOT_H.a, 'day 1 DSA load should be close to the 1.5h/day budget, got ' + h.toFixed(2) + 'h');
+  ok(h > 0.7 && h <= g.GFG_DAILY_VIDEO_H + 0.3, 'day 1 DSA load should be close to the 1h/day budget, got ' + h.toFixed(2) + 'h');
 });
 t('day 1 SQL content is packed to ~1h, not thin-spread over every SQL day', () => {
   R();
