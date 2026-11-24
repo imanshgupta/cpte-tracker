@@ -498,21 +498,29 @@ function isEvenDay(dateStr) {
 // language mid-week. Each non-buffer week in order is one study week; even ones
 // (the 1st, 3rd, 5th…) are Java weeks, odd ones Spring. Buffer weeks don't study
 // Slot B, so they don't advance the count.
-let _weekParity = null;
-function weekParityMap() {
-  if (_weekParity) return _weekParity;
-  _weekParity = {};
+let _weekOrd = null;
+function weekOrdinalMap() {
+  if (_weekOrd) return _weekOrd;
+  _weekOrd = {};
   let studyWk = 0;
   WEEKS.forEach(w => {
-    w.days.forEach(d => { _weekParity[d.d] = w.isBuffer ? -1 : studyWk % 2; });
+    w.days.forEach(d => { _weekOrd[d.d] = w.isBuffer ? -1 : studyWk; });
     if (!w.isBuffer) studyWk++;
   });
-  return _weekParity;
+  return _weekOrd;
+}
+// The rotation is anchored so it STARTS from Java at your (re)baseline week:
+// the anchor is the study-week you baselined in (else the plan's first week).
+// Even study-weeks from the anchor are Java, odd are Spring.
+function javaAnchorOrdinal() {
+  const anchor = (typeof STATE !== 'undefined' && STATE && STATE.baseline && STATE.baseline.created) || PLAN_START;
+  const o = weekOrdinalMap()[anchor];
+  return (o == null || o < 0) ? 0 : o;
 }
 function isJavaWeek(dateStr) {
-  const p = weekParityMap()[dateStr];
-  if (p === undefined) return Math.floor(daysBetween(PLAN_START, dateStr) / 7) % 2 === 0;  // off-plan fallback
-  return p !== 1;   // 0 = Java study week, -1 = buffer (treat as Java, Slot B isn't studied then anyway)
+  const o = weekOrdinalMap()[dateStr];
+  if (o == null || o < 0) return Math.floor(daysBetween(PLAN_START, dateStr) / 7) % 2 === 0;  // off-plan/buffer fallback
+  return ((((o - javaAnchorOrdinal()) % 2) + 2) % 2) === 0;   // even from anchor = Java
 }
 
 // Which stream owns a slot. Slots that return null (mocks, behavioural work,
@@ -1251,10 +1259,15 @@ function revisionTag(day, slot) {
   const studying = isJavaWeek(day.d) ? 'java' : 'spring';
   const revise = studying === 'java' ? 'spring' : 'java';
   const since = addDays(day.d, -7), done = STATE.doneOn || {};
-  const names = streamUnits(revise).filter(u => {
+  const units = streamUnits(revise);
+  // Prefer what you actually completed in the last 7 days…
+  let names = units.filter(u => {
     const on = done[unitKey(u)];
     return on && on !== 'pre' && on >= since && on < day.d;
   }).map(u => u.name);
+  // …but a re-baseline collapses completion dates to 'pre', so fall back to the
+  // most recently reached topics in that language (the frontier of your progress).
+  if (!names.length) names = units.filter(u => unitDone(u)).slice(-6).map(u => u.name);
   if (!names.length) return '';
   return `<div class="slot-revise">🔁 Revise last week's ${STREAMS[revise].label} (${names.length}) — re-cover these before new material:<div class="sr-list">${names.join(' · ')}</div></div>`;
 }

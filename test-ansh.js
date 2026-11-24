@@ -893,6 +893,23 @@ t('Today flags unscheduled backlog when a stream has more left than days hold', 
   ok(h.indexOf('to catch up') >= 0, 'and points to the track tab to catch up');
   global.__api.setToday(2026, 8, 24);
 });
+t('revision prompt survives a re-baseline (frontier fallback)', () => {
+  resetLedger();                                   // Java week at Aug 24 (anchor = Aug 24)
+  f.streamUnits('spring').slice(0, 4).forEach(u => doneTopic('spring', u.id));
+  f.createBaseline();                              // re-baseline: completion dates collapse to 'pre'
+  f.invalidatePlan(); f.renderToday();
+  const h = getEl('panel-today').innerHTML;
+  ok(/Revise last week's Spring/.test(h), 'Java week still shows Spring revision after a re-baseline');
+  global.__api.setToday(2026, 8, 24);
+});
+t('the weekly rotation starts from Java at the (re)baseline week', () => {
+  R();
+  global.__api.setToday(2026, 8, 31);             // week 1 (would be Spring from plan start)
+  f.ensureLedger();                               // baseline here → this week becomes the Java anchor
+  ok(f.isJavaWeek('2026-08-31'), 'the baseline week is a Java week');
+  ok(!f.isJavaWeek('2026-09-07'), 'the next week flips to Spring');
+  global.__api.setToday(2026, 8, 24);
+});
 t('state shape is safe for old saves (no baseline) and for resetAll', () => {
   R();
   eq(global.__api.state.baseline, null, 'fresh state has no baseline');
