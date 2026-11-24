@@ -334,7 +334,7 @@ t('day 1 SQL content is packed to ~1h, not thin-spread over every SQL day', () =
   R();
   const day1 = sessionsFor('sql')[0];
   const h = day1.units.reduce((a, u) => a + u.w, 0);
-  ok(h > 0.6 && h <= g.SLOT_H.c, 'day 1 SQL load should be close to the 1h/day budget, got ' + h.toFixed(2) + 'h');
+  ok(h > 0.6 && h <= g.SQL_DAILY_H + 0.3, 'day 1 SQL load should be close to the 1h/day budget, got ' + h.toFixed(2) + 'h');
 });
 t('a behind stream caps each day at its budget — surplus shows as behind, not crammed', () => {
   R();
