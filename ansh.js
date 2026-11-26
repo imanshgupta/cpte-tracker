@@ -347,30 +347,27 @@ function getDefaultState() {
   GFG_MODULES.forEach(m => m.topics.forEach(t => {
     topics[t.id] = {done:{}};
   }));
-  return {version:STATE_VERSION, gfg:{topics}, dailyChecks:{}, dailyLog:{}, tracks:getDefaultTracks(), baseline:null, doneOn:{}, studyTimer:defaultStudyTimer()};
+  return {version:STATE_VERSION, gfg:{topics}, dailyChecks:{}, dailyLog:{}, tracks:getDefaultTracks(), baseline:null, doneOn:{}};
 }
 
 // ─── STUDY TIMER STATE ─────────────────────────────────────────────────────
-// Per-account (lives in STATE, so it syncs to ansh_tracker/{uid} and caches
-// under the per-uid localStorage key — never generic across accounts).
-// Shape: { date, accumulatedSec, running, startedAt, sessions:[{start,end,sec}],
-//          log:{ 'YYYY-MM-DD': {total, sessions:[...]} } }
-// `accumulatedSec` + `sessions` belong to `date`; at midnight the day is
-// finalized into `log` and the counter resets (the timer also stops, so the
-// new day only counts after a fresh Start click).
+// The study timer does NOT live in STATE (to keep start/stop from rewriting
+// the whole curriculum doc, and to keep history from piling up inside the
+// synced state). It lives in its own tiny per-account store — see the STUDY
+// TIMER section below. `TIMER` is only ever today's live interval; finished
+// days are small per-day docs. This helper just normalizes a live-timer
+// object loaded from cache/Firestore.
 function defaultStudyTimer() {
-  return {date: todayStr(), accumulatedSec: 0, running: false, startedAt: null, sessions: [], log: {}};
+  return {date: todayStr(), accumulatedSec: 0, running: false, startedAt: null, sessions: []};
 }
 
-function ensureStudyTimer(s) {
-  if (!s.studyTimer || typeof s.studyTimer !== 'object') s.studyTimer = defaultStudyTimer();
-  const t = s.studyTimer;
+function normalizeTimer(t) {
+  if (!t || typeof t !== 'object') return defaultStudyTimer();
   if (!t.date) t.date = todayStr();
   if (typeof t.accumulatedSec !== 'number' || t.accumulatedSec < 0) t.accumulatedSec = 0;
   if (typeof t.running !== 'boolean') t.running = false;
   if (t.running && typeof t.startedAt !== 'number') { t.running = false; t.startedAt = null; }
   if (!Array.isArray(t.sessions)) t.sessions = [];
-  if (!t.log || typeof t.log !== 'object') t.log = {};
   return t;
 }
 
@@ -401,7 +398,6 @@ function loadState() {
     // leave STATE.tracks.java undefined
     if (!s.tracks) s.tracks = getDefaultTracks();
     else Object.keys(getDefaultTracks()).forEach(k => { if (!s.tracks[k]) s.tracks[k] = {}; });
-    ensureStudyTimer(s);
     return migrateGfg(s);
   } catch(e) { return getDefaultState(); }
 }
@@ -1159,6 +1155,32 @@ function renderProgress() {
 }
 
 // ─── STUDY TIMER ───────────────────────────────────────────────────────────
+// Lives OUTSIDE the main STATE doc, in its own tiny per-account store, so that
+// (a) start/stop never rewrites the whole curriculum doc, (b) history can't
+// bloat the synced state, and (c) the running clock stays consistent across a
+// user's devices. Two in-memory pieces:
+//   TIMER         — today's live interval only {date, accumulatedSec, running,
+//                   startedAt, sessions}. Mirrored to ansh_tracker/{uid}/study/live
+//                   and localStorage, written only on start/stop (and once at
+//                   midnight). Because startedAt is an ABSOLUTE epoch, every
+//                   device computes the identical clock locally with no
+//                   per-second writes — Firebase sees ~2 writes per session.
+//   TIMER_HISTORY — recent finished days {date:{total,sessions}}, each a small
+//                   doc ansh_tracker/{uid}/studyDays/{date} written once at
+//                   midnight. Loaded with a capped query; docs older than
+//                   TIMER_RETAIN_DAYS are pruned, so storage stays bounded no
+//                   matter how long the tracker is used.
+let TIMER = defaultStudyTimer();
+let TIMER_HISTORY = {};
+const TIMER_RETAIN_DAYS = 90;      // keep ~3 months of per-day docs, then prune
+const TIMER_HISTORY_LIMIT = 60;    // days fetched from Firestore / kept in cache
+let _timerUnsub = null;
+let _timerLastWrite = 0;           // stamp of our own live-doc write (echo guard)
+let _timerApplyingRemote = false;  // suppress writes while applying a remote snapshot
+
+function timerStorageKey() {
+  return 'java-prep-timer-v1:' + (CURRENT_USER ? CURRENT_USER.uid : 'anon');
+}
 
 function yesterdayStr() {
   const t = new Date(); t.setDate(t.getDate() - 1);
@@ -1169,6 +1191,154 @@ function yesterdayStr() {
 function dayEndMs(dateStr) {
   const [y, mo, d] = dateStr.split('-').map(Number);
   return new Date(y, mo-1, d+1, 0, 0, 0, 0).getTime();
+}
+
+// Oldest date we keep in history; anything strictly before it is pruned.
+function timerCutoffDate() {
+  const t = new Date(); t.setHours(0,0,0,0); t.setDate(t.getDate() - TIMER_RETAIN_DAYS);
+  return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+}
+function pruneHistoryCache() {
+  const cut = timerCutoffDate();
+  Object.keys(TIMER_HISTORY).forEach(d => { if (d < cut) delete TIMER_HISTORY[d]; });
+  // also cap the cache to the most recent TIMER_HISTORY_LIMIT days
+  const keys = Object.keys(TIMER_HISTORY).sort();
+  if (keys.length > TIMER_HISTORY_LIMIT) keys.slice(0, keys.length - TIMER_HISTORY_LIMIT).forEach(d => delete TIMER_HISTORY[d]);
+}
+function timerYesterdayTotal() {
+  const e = TIMER_HISTORY[yesterdayStr()];
+  return (e && e.total) || 0;
+}
+
+// ── Per-account persistence ────────────────────────────────────────────────
+function saveTimerLocal() {
+  try {
+    const hist = {};
+    Object.keys(TIMER_HISTORY).sort().slice(-TIMER_HISTORY_LIMIT).forEach(d => hist[d] = TIMER_HISTORY[d]);
+    localStorage.setItem(timerStorageKey(), JSON.stringify({timer: TIMER, history: hist}));
+  } catch(e) {}
+}
+
+function loadTimerLocal() {
+  try {
+    const raw = localStorage.getItem(timerStorageKey());
+    if (raw) {
+      const o = JSON.parse(raw);
+      TIMER = normalizeTimer(o.timer);
+      TIMER_HISTORY = (o.history && typeof o.history === 'object') ? o.history : {};
+    } else { TIMER = defaultStudyTimer(); TIMER_HISTORY = {}; }
+  } catch(e) { TIMER = defaultStudyTimer(); TIMER_HISTORY = {}; }
+
+  // One-time migration: the earlier build kept the timer inside STATE.studyTimer.
+  // Pull its history + today's interval over, then drop it so the big doc slims.
+  if (STATE && STATE.studyTimer && typeof STATE.studyTimer === 'object') {
+    const old = STATE.studyTimer;
+    if (old.log) Object.keys(old.log).forEach(d => {
+      if (!TIMER_HISTORY[d] && old.log[d]) TIMER_HISTORY[d] = {total: old.log[d].total || 0, sessions: old.log[d].sessions || []};
+    });
+    if (old.date === todayStr() && !TIMER.sessions.length && (TIMER.accumulatedSec||0) === 0 && (old.accumulatedSec || old.running)) {
+      TIMER = normalizeTimer({date: old.date, accumulatedSec: old.accumulatedSec, running: old.running, startedAt: old.startedAt, sessions: old.sessions});
+    }
+    delete STATE.studyTimer;
+    if (CURRENT_USER) saveState(STATE);
+  }
+
+  reconcileStudyTimer();
+  pruneHistoryCache();
+  saveTimerLocal();
+}
+
+function initTimer(uid) {
+  loadTimerLocal();
+  listenTimerLive(uid);
+  loadTimerHistory(uid);
+  ensureTimerTick();
+}
+
+// Mirror today's live interval to the tiny live doc (and localStorage). Called
+// only on start/stop and midnight — never per second.
+function persistTimerLive() {
+  saveTimerLocal();
+  if (!CURRENT_USER || _timerApplyingRemote) return;
+  if (!window.firestoreSetDoc || !window.firestoreDoc) return;
+  const stamp = Date.now();
+  _timerLastWrite = stamp;
+  try {
+    const ref = window.firestoreDoc(window.firebaseDB, 'ansh_tracker', CURRENT_USER.uid, 'study', 'live');
+    window.firestoreSetDoc(ref, {
+      date: TIMER.date, accumulatedSec: Math.round(TIMER.accumulatedSec),
+      running: TIMER.running, startedAt: TIMER.startedAt || null,
+      sessions: TIMER.sessions, lastUpdated: stamp
+    }).catch(() => {});
+  } catch(e) {}
+}
+
+// Write one finished day as its own small doc, then prune anything too old.
+function finalizeDayRemote(date, entry) {
+  if (!CURRENT_USER || !window.firestoreSetDoc || !window.firestoreDoc) return;
+  try {
+    const ref = window.firestoreDoc(window.firebaseDB, 'ansh_tracker', CURRENT_USER.uid, 'studyDays', date);
+    window.firestoreSetDoc(ref, {date, total: entry.total, sessions: entry.sessions, savedAt: Date.now()}).catch(() => {});
+  } catch(e) {}
+  pruneHistoryRemote();
+}
+
+function pruneHistoryRemote() {
+  if (!CURRENT_USER || !window.firestoreGetDocs || !window.firestoreQuery || !window.firestoreCollection) return;
+  try {
+    const col = window.firestoreCollection(window.firebaseDB, 'ansh_tracker', CURRENT_USER.uid, 'studyDays');
+    const q = window.firestoreQuery(col, window.firestoreWhere('date', '<', timerCutoffDate()));
+    window.firestoreGetDocs(q).then(snap => {
+      snap.forEach(d => { try { window.firestoreDeleteDoc(d.ref).catch(() => {}); } catch(e) {} });
+    }).catch(() => {});
+  } catch(e) {}
+}
+
+function loadTimerHistory(uid) {
+  uid = uid || (CURRENT_USER && CURRENT_USER.uid);
+  if (!uid || !window.firestoreGetDocs || !window.firestoreQuery || !window.firestoreCollection) return Promise.resolve();
+  try {
+    const col = window.firestoreCollection(window.firebaseDB, 'ansh_tracker', uid, 'studyDays');
+    const q = window.firestoreQuery(col, window.firestoreOrderBy('date', 'desc'), window.firestoreLimit(TIMER_HISTORY_LIMIT));
+    return window.firestoreGetDocs(q).then(snap => {
+      snap.forEach(d => { const e = d.data(); if (e && e.date) TIMER_HISTORY[e.date] = {total: e.total || 0, sessions: e.sessions || []}; });
+      pruneHistoryCache();
+      saveTimerLocal();
+      rerenderTimerPanels();
+    }).catch(() => {});
+  } catch(e) { return Promise.resolve(); }
+}
+
+// Live cross-device sync: another device's start/stop lands here and the clock
+// picks up from the same absolute startedAt.
+function listenTimerLive(uid) {
+  if (_timerUnsub) { _timerUnsub(); _timerUnsub = null; }
+  if (!window.firestoreOnSnapshot || !window.firestoreDoc) return;
+  try {
+    const ref = window.firestoreDoc(window.firebaseDB, 'ansh_tracker', uid, 'study', 'live');
+    _timerUnsub = window.firestoreOnSnapshot(ref, snap => {
+      if (snap.metadata && snap.metadata.hasPendingWrites) return;   // our own optimistic echo
+      if (!snap.exists || !snap.exists()) return;
+      const r = snap.data();
+      if (r && r.lastUpdated && r.lastUpdated === _timerLastWrite) return;   // our confirmed echo
+      applyRemoteTimer(r);
+    }, () => {});
+  } catch(e) {}
+}
+
+function applyRemoteTimer(r) {
+  _timerApplyingRemote = true;
+  TIMER = normalizeTimer({date: r.date, accumulatedSec: r.accumulatedSec, running: r.running, startedAt: r.startedAt, sessions: r.sessions});
+  reconcileStudyTimer();     // the remote device's "today" may already be stale here
+  saveTimerLocal();
+  rerenderTimerPanels();
+  ensureTimerTick();
+  _timerApplyingRemote = false;
+}
+
+function stopTimerListener() {
+  if (_timerUnsub) { _timerUnsub(); _timerUnsub = null; }
+  if (_timerTick) { clearInterval(_timerTick); _timerTick = null; }
 }
 
 function fmtClock(sec) {
@@ -1191,65 +1361,66 @@ function fmtTimeOfDay(ms) {
 
 // Seconds studied so far today = banked intervals + the live interval if running.
 function timerCurrentSec() {
-  const t = STATE.studyTimer;
-  if (!t) return 0;
-  let sec = t.accumulatedSec || 0;
-  if (t.running && t.startedAt) sec += Math.max(0, (Date.now() - t.startedAt) / 1000);
+  let sec = TIMER.accumulatedSec || 0;
+  if (TIMER.running && TIMER.startedAt) sec += Math.max(0, (Date.now() - TIMER.startedAt) / 1000);
   return sec;
 }
 
-// Roll the day over at midnight: finalize the prior day into `log` and reset.
+// Roll the day over at midnight: finalize the prior day into history and reset.
 // If the timer was running across midnight, the running interval is banked only
 // up to that day's midnight (never crediting hours while the app sat closed),
-// then the timer is STOPPED so the new day starts fresh on a click. Returns
-// true if anything changed (caller persists).
-function reconcileStudyTimer(s) {
-  const t = ensureStudyTimer(s);
+// then the timer is STOPPED so the new day starts fresh on a click. The finished
+// day is written as its own small doc (and old docs pruned). Returns true if a
+// rollover happened (and persists everything itself).
+function reconcileStudyTimer() {
+  normalizeTimer(TIMER);
   const today = todayStr();
-  if (t.date === today) return false;
+  if (TIMER.date === today) return false;
 
   // Close out the running interval at the prior day's midnight.
-  if (t.running && t.startedAt) {
-    const end = Math.min(dayEndMs(t.date), Date.now());
-    const sec = Math.max(0, Math.round((end - t.startedAt) / 1000));
-    if (sec > 0) { t.sessions.push({start: t.startedAt, end, sec}); t.accumulatedSec += sec; }
+  if (TIMER.running && TIMER.startedAt) {
+    const end = Math.min(dayEndMs(TIMER.date), Date.now());
+    const sec = Math.max(0, Math.round((end - TIMER.startedAt) / 1000));
+    if (sec > 0) { TIMER.sessions.push({start: TIMER.startedAt, end, sec}); TIMER.accumulatedSec += sec; }
   }
-  // Persist the finalized day (only if it had activity).
-  if (t.accumulatedSec > 0 || t.sessions.length) {
-    t.log[t.date] = {total: Math.round(t.accumulatedSec), sessions: t.sessions.slice()};
+  // Finalize the day into history (only if it had activity).
+  if (TIMER.accumulatedSec > 0 || TIMER.sessions.length) {
+    const entry = {total: Math.round(TIMER.accumulatedSec), sessions: TIMER.sessions.slice()};
+    TIMER_HISTORY[TIMER.date] = entry;
+    finalizeDayRemote(TIMER.date, entry);
   }
   // Reset for the new day — a fresh Start click is required.
-  t.date = today;
-  t.accumulatedSec = 0;
-  t.sessions = [];
-  t.running = false;
-  t.startedAt = null;
+  TIMER.date = today;
+  TIMER.accumulatedSec = 0;
+  TIMER.sessions = [];
+  TIMER.running = false;
+  TIMER.startedAt = null;
+  pruneHistoryCache();
+  persistTimerLive();
   return true;
 }
 
 function startStudyTimer() {
   if (!CURRENT_USER) return;
-  reconcileStudyTimer(STATE);
-  const t = STATE.studyTimer;
-  if (t.running) return;
-  t.running = true;
-  t.startedAt = Date.now();
-  saveState(STATE);
+  reconcileStudyTimer();
+  if (TIMER.running) return;
+  TIMER.running = true;
+  TIMER.startedAt = Date.now();
+  persistTimerLive();
   rerenderTimerPanels();
   ensureTimerTick();
 }
 
 function stopStudyTimer() {
   if (!CURRENT_USER) return;
-  reconcileStudyTimer(STATE);
-  const t = STATE.studyTimer;
-  if (!t.running) return;
+  reconcileStudyTimer();
+  if (!TIMER.running) return;
   const end = Date.now();
-  const sec = Math.max(0, Math.round((end - t.startedAt) / 1000));
-  if (sec > 0) { t.sessions.push({start: t.startedAt, end, sec}); t.accumulatedSec += sec; }
-  t.running = false;
-  t.startedAt = null;
-  saveState(STATE);
+  const sec = Math.max(0, Math.round((end - TIMER.startedAt) / 1000));
+  if (sec > 0) { TIMER.sessions.push({start: TIMER.startedAt, end, sec}); TIMER.accumulatedSec += sec; }
+  TIMER.running = false;
+  TIMER.startedAt = null;
+  persistTimerLive();
   rerenderTimerPanels();
   ensureTimerTick();
 }
@@ -1263,7 +1434,7 @@ function rerenderTimerPanels() {
 //    catches a midnight rollover live (the only moment the tick writes state).
 let _timerTick = null;
 function ensureTimerTick() {
-  const running = STATE.studyTimer && STATE.studyTimer.running;
+  const running = TIMER && TIMER.running;
   if (running && !_timerTick) {
     _timerTick = setInterval(timerTickFn, 1000);
   } else if (!running && _timerTick) {
@@ -1271,10 +1442,10 @@ function ensureTimerTick() {
   }
 }
 function timerTickFn() {
-  if (reconcileStudyTimer(STATE)) {   // midnight crossed while open
-    saveState(STATE);
+  if (reconcileStudyTimer()) {   // midnight crossed while open — reconcile persists
     rerenderTimerPanels();
     ensureTimerTick();
+    loadTimerHistory();          // refresh history/benchmark from the day just written
     return;
   }
   updateTimerDisplays();
@@ -1283,8 +1454,7 @@ function updateTimerDisplays() {
   const sec = timerCurrentSec();
   const clock = fmtClock(sec);
   document.querySelectorAll('.timer-clock-live').forEach(e => { e.textContent = clock; });
-  const t = STATE.studyTimer;
-  const yTotal = (t && t.log[yesterdayStr()] && t.log[yesterdayStr()].total) || 0;
+  const yTotal = timerYesterdayTotal();
   document.querySelectorAll('.timer-vs-live').forEach(e => {
     e.className = 'timer-vs-live ' + timerVsClass(sec, yTotal);
     e.textContent = timerVsText(sec, yTotal);
@@ -1303,10 +1473,9 @@ function timerVsText(sec, yTotal) {
 
 // Compact strip shown at the top of the Today tab.
 function timerStripHTML() {
-  const t = STATE.studyTimer;
   const sec = timerCurrentSec();
-  const yTotal = (t.log[yesterdayStr()] && t.log[yesterdayStr()].total) || 0;
-  const running = t.running;
+  const yTotal = timerYesterdayTotal();
+  const running = TIMER.running;
   return `<div class="timer-strip ${running ? 'running' : ''}">
     <div class="timer-strip-main">
       <div class="timer-dot"></div>
@@ -1323,11 +1492,11 @@ function timerStripHTML() {
 function renderTimer() {
   const el = document.getElementById('panel-timer');
   if (!el) return;
-  if (reconcileStudyTimer(STATE)) saveState(STATE);
-  const t = STATE.studyTimer;
+  reconcileStudyTimer();
+  const t = TIMER;
   const sec = timerCurrentSec();
   const running = t.running;
-  const yTotal = (t.log[yesterdayStr()] && t.log[yesterdayStr()].total) || 0;
+  const yTotal = timerYesterdayTotal();
 
   // Today-vs-yesterday bars (scaled to the larger of the two).
   const scale = Math.max(sec, yTotal, 1);
@@ -1358,10 +1527,10 @@ function renderTimer() {
         : '');
 
   // History: finalized past days, newest first.
-  const days = Object.keys(t.log).filter(d => d !== todayStr() && t.log[d] && t.log[d].total > 0).sort().reverse();
+  const days = Object.keys(TIMER_HISTORY).filter(d => d !== todayStr() && TIMER_HISTORY[d] && TIMER_HISTORY[d].total > 0).sort().reverse();
   const histCard = `<div class="card"><div class="lbl">Daily history</div>${
     days.length ? days.map(d => {
-      const e = t.log[d];
+      const e = TIMER_HISTORY[d];
       const sess = (e.sessions || []).slice().sort((a,b) => a.start - b.start);
       return `<div class="thist-day">
         <div class="thist-day-head">
@@ -1433,7 +1602,7 @@ function trackBadge(track, label) {
 function renderToday() {
   const today = todayStr();
   const el = document.getElementById('panel-today');
-  if (reconcileStudyTimer(STATE)) saveState(STATE);
+  reconcileStudyTimer();
   ensureTimerTick();
 
   if (today < PLAN_START) {
@@ -2125,6 +2294,7 @@ function init() {
       if (btn) { btn.textContent = 'Sign Out (' + (user.displayName || user.email || 'account').split(' ')[0] + ')'; btn.className = 'auth-btn signed-in'; }
       listenToFirestore(user.uid).then(() => {
         ensureLedger();
+        initTimer(user.uid);
         renderToday();
         renderRules();
         showApp();
@@ -2132,6 +2302,9 @@ function init() {
     } else {
       CURRENT_USER = null;
       stopListeningToFirestore();
+      stopTimerListener();
+      TIMER = defaultStudyTimer();
+      TIMER_HISTORY = {};
       if (btn) { btn.textContent = 'Sign In'; btn.className = 'auth-btn'; }
       showSignInGate();
     }
@@ -2175,7 +2348,6 @@ function applyRemoteState(remote) {
   if (!remote.gfg) remote.gfg = getDefaultState().gfg;
   if (!remote.tracks) remote.tracks = getDefaultTracks();
   else Object.keys(getDefaultTracks()).forEach(k => { if (!remote.tracks[k]) remote.tracks[k] = {}; });
-  ensureStudyTimer(remote);
   STATE = migrateGfg(remote);
   invalidatePlan();
   localStorage.setItem(activeStorageKey(), JSON.stringify(STATE));

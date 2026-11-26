@@ -57,9 +57,14 @@ const code = fs.readFileSync('ansh.js', 'utf8') + `
       ensureLedger, createBaseline, resetBaseline, ledgerOf, streamLedger, lateItems, recentDone, renderProgress,
       ledgerChip, gfgTopicChip, renderLateBanner, unitKey, addDays,
       programFinish, renderFinishFlash, slipFlag,
-      ensureStudyTimer, reconcileStudyTimer, startStudyTimer, stopStudyTimer, timerCurrentSec,
-      renderTimer, fmtDur, fmtClock, yesterdayStr, dayEndMs },
+      normalizeTimer, reconcileStudyTimer, startStudyTimer, stopStudyTimer, timerCurrentSec,
+      renderTimer, fmtDur, fmtClock, yesterdayStr, dayEndMs, timerYesterdayTotal },
   get state(){ return STATE; },
+  get timer(){ return TIMER; },
+  get timerHistory(){ return TIMER_HISTORY; },
+  setTimer(o){ TIMER = normalizeTimer(o); },
+  setHistory(h){ TIMER_HISTORY = h || {}; },
+  resetTimer(){ TIMER = defaultStudyTimer(); TIMER_HISTORY = {}; },
 };`;
 eval(code);
 
@@ -1032,85 +1037,97 @@ t('the flash banner always renders a date, and completion when all done', () => 
 global.__api.setToday(2026, 8, 24);
 
 // ───────────────────────────────────────────────────────────────────────────
-S('15. Study timer — click-driven, per-day, midnight finalize');
+S('15. Study timer — per-account, click-driven, midnight finalize, light storage');
 
-t('default state carries an empty study timer', () => {
+t('the timer is NOT stored in the synced STATE doc', () => {
   R(); global.__api.setToday(2026, 8, 24);
-  const st = global.__api.state.studyTimer;
-  ok(st && typeof st === 'object', 'studyTimer exists');
-  eq(st.date, '2026-08-24', 'dated to today');
-  eq(st.accumulatedSec, 0, 'starts at zero');
-  eq(st.running, false, 'not running');
-  eq(Object.keys(st.log).length, 0, 'no history');
+  ok(!('studyTimer' in global.__api.state), 'STATE carries no studyTimer field (stays a tiny live doc)');
+});
+
+t('a fresh timer is empty and dated to today', () => {
+  global.__api.resetTimer(); global.__api.setTimer({date:'2026-08-24'});
+  const t = global.__api.timer;
+  eq(t.date, '2026-08-24', 'dated to today');
+  eq(t.accumulatedSec, 0, 'starts at zero');
+  eq(t.running, false, 'not running');
+  eq(Object.keys(global.__api.timerHistory).length, 0, 'no history');
 });
 
 t('Start then Stop flips running, never auto-starts/stops', () => {
-  R(); global.__api.setToday(2026, 8, 24); global.__api.setUser({uid:'u1'});
+  global.__api.resetTimer(); global.__api.setTimer({date:'2026-08-24'});
+  global.__api.setToday(2026, 8, 24); global.__api.setUser({uid:'u1'});
   f.startStudyTimer();
-  ok(global.__api.state.studyTimer.running === true, 'running after a click');
-  ok(typeof global.__api.state.studyTimer.startedAt === 'number', 'has a start stamp');
+  ok(global.__api.timer.running === true, 'running after a click');
+  ok(typeof global.__api.timer.startedAt === 'number', 'has a start stamp');
   f.stopStudyTimer();
-  ok(global.__api.state.studyTimer.running === false, 'stopped after a click');
-  eq(global.__api.state.studyTimer.startedAt, null, 'start stamp cleared');
+  ok(global.__api.timer.running === false, 'stopped after a click');
+  eq(global.__api.timer.startedAt, null, 'start stamp cleared');
   global.__api.setUser(null);
 });
 
 t('a click is required — no user, no start', () => {
-  R(); global.__api.setToday(2026, 8, 24); global.__api.setUser(null);
+  global.__api.resetTimer(); global.__api.setTimer({date:'2026-08-24'});
+  global.__api.setToday(2026, 8, 24); global.__api.setUser(null);
   f.startStudyTimer();
-  eq(global.__api.state.studyTimer.running, false, 'start is a no-op without a signed-in user');
+  eq(global.__api.timer.running, false, 'start is a no-op without a signed-in user');
 });
 
 t('midnight finalizes the day into history and resets the counter', () => {
-  R(); global.__api.setToday(2026, 8, 24);
-  const st = global.__api.state.studyTimer;
-  st.date = '2026-08-24';
-  st.accumulatedSec = 3600;
-  st.sessions = [{start: 1, end: 2, sec: 3600}];
+  global.__api.resetTimer();
+  global.__api.setTimer({date:'2026-08-24', accumulatedSec:3600, sessions:[{start:1,end:2,sec:3600}]});
   global.__api.setToday(2026, 8, 25);
-  const changed = f.reconcileStudyTimer(global.__api.state);
+  const changed = f.reconcileStudyTimer();
   ok(changed, 'reconcile reports a rollover');
-  eq(global.__api.state.studyTimer.log['2026-08-24'].total, 3600, 'yesterday banked to history');
-  eq(global.__api.state.studyTimer.log['2026-08-24'].sessions.length, 1, 'with its sessions');
-  eq(global.__api.state.studyTimer.date, '2026-08-25', 'rolled to the new day');
-  eq(global.__api.state.studyTimer.accumulatedSec, 0, 'counter reset to zero');
-  eq(global.__api.state.studyTimer.sessions.length, 0, 'sessions cleared');
+  eq(global.__api.timerHistory['2026-08-24'].total, 3600, 'yesterday banked to history');
+  eq(global.__api.timerHistory['2026-08-24'].sessions.length, 1, 'with its sessions');
+  eq(global.__api.timer.date, '2026-08-25', 'rolled to the new day');
+  eq(global.__api.timer.accumulatedSec, 0, 'counter reset to zero');
+  eq(global.__api.timer.sessions.length, 0, 'sessions cleared');
 });
 
 t('a timer running at midnight banks up to midnight, then stops (fresh click next day)', () => {
-  R(); global.__api.setToday(2026, 8, 24);
-  const st = global.__api.state.studyTimer;
-  st.date = '2026-08-24';
+  global.__api.resetTimer();
   // started one hour before the midnight that ends Aug 24; reconcile closes the
   // interval at that midnight (simulated now = midnight of the new day)
-  st.running = true;
-  st.startedAt = f.dayEndMs('2026-08-24') - 3600 * 1000;
-  st.accumulatedSec = 0;
+  global.__api.setTimer({date:'2026-08-24', running:true, startedAt: f.dayEndMs('2026-08-24') - 3600*1000, accumulatedSec:0});
   global.__api.setToday(2026, 8, 25);
-  f.reconcileStudyTimer(global.__api.state);
-  eq(global.__api.state.studyTimer.log['2026-08-24'].total, 3600, 'the pre-midnight hour is banked to Aug 24');
-  eq(global.__api.state.studyTimer.running, false, 'the timer is stopped for the new day');
-  eq(global.__api.state.studyTimer.accumulatedSec, 0, 'the new day starts empty');
+  f.reconcileStudyTimer();
+  eq(global.__api.timerHistory['2026-08-24'].total, 3600, 'the pre-midnight hour is banked to Aug 24');
+  eq(global.__api.timer.running, false, 'the timer is stopped for the new day');
+  eq(global.__api.timer.accumulatedSec, 0, 'the new day starts empty');
 });
 
 t('an empty day just rolls forward — no phantom history entry', () => {
-  R(); global.__api.setToday(2026, 8, 24);
-  global.__api.state.studyTimer.date = '2026-08-24';
+  global.__api.resetTimer(); global.__api.setTimer({date:'2026-08-24'});
   global.__api.setToday(2026, 8, 25);
-  f.reconcileStudyTimer(global.__api.state);
-  ok(!global.__api.state.studyTimer.log['2026-08-24'], 'a day with no study logs nothing');
-  eq(global.__api.state.studyTimer.date, '2026-08-25', 'still advances the date');
+  f.reconcileStudyTimer();
+  ok(!global.__api.timerHistory['2026-08-24'], 'a day with no study logs nothing');
+  eq(global.__api.timer.date, '2026-08-25', 'still advances the date');
 });
 
-t('yesterday is the benchmark and the timer tab renders it', () => {
-  R(); global.__api.setToday(2026, 8, 25); global.__api.setUser({uid:'u1'});
-  global.__api.state.studyTimer.log['2026-08-24'] = {total: 7200, sessions: [{start:1,end:2,sec:7200}]};
+t('history is pruned to the retention window, so storage stays bounded', () => {
+  global.__api.resetTimer(); global.__api.setTimer({date:'2026-08-24', accumulatedSec:600});
+  const hist = {};
+  hist['2024-01-01'] = {total: 100, sessions: []};   // far older than 90 days
+  hist['2026-08-23'] = {total: 200, sessions: []};   // recent
+  global.__api.setHistory(hist);
+  global.__api.setToday(2026, 8, 25);
+  f.reconcileStudyTimer();   // prunes on rollover
+  ok(!global.__api.timerHistory['2024-01-01'], 'a day past the 90-day window is dropped');
+  ok(global.__api.timerHistory['2026-08-23'], 'recent history is kept');
+});
+
+t('yesterday is the benchmark and the timer tab renders it from history', () => {
+  global.__api.resetTimer(); global.__api.setTimer({date:'2026-08-25'});
+  global.__api.setToday(2026, 8, 25); global.__api.setUser({uid:'u1'});
+  global.__api.setHistory({'2026-08-24': {total: 7200, sessions: [{start:1,end:2,sec:7200}]}});
+  eq(f.timerYesterdayTotal(), 7200, 'benchmark reads yesterday from history');
   f.renderTimer();
   const h = getEl('panel-timer').innerHTML;
   ok(h.indexOf('Yesterday') >= 0, 'labels the yesterday benchmark');
   ok(h.indexOf('2h') >= 0, 'shows the 2h benchmark total');
   ok(h.indexOf('Daily history') >= 0, 'has a daily history section');
-  global.__api.setUser(null); global.__api.setToday(2026, 8, 24);
+  global.__api.setUser(null); global.__api.resetTimer(); global.__api.setToday(2026, 8, 24);
 });
 
 t('fmtDur / fmtClock format sensibly', () => {
