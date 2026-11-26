@@ -19,7 +19,8 @@ function getEl(id) { return els[id] || (els[id] = mkEl(id)); }
 
 global.localStorage = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => store[k] = v, removeItem: k => delete store[k] };
 global.document = { getElementById: getEl, querySelectorAll: () => [], querySelector: () => null, addEventListener() {} };
-global.window = { addEventListener() {} };
+global.window = { addEventListener() {},
+  firebaseDB: {}, firestoreDoc: () => ({}), firestoreSetDoc: () => Promise.resolve() };
 global.confirm = () => true;
 
 global.__TODAY = [2026, 7, 24];              // Aug 24 2026 = plan day 1
@@ -27,7 +28,9 @@ const RD = Date;
 global.Date = class extends RD {
   constructor(...a) { if (!a.length) super(...global.__TODAY); else super(...a); }
 };
-global.Date.now = RD.now;
+// Only the study-timer code reads Date.now(); peg it to simulated midnight of
+// __TODAY so timer math is deterministic regardless of the machine's real clock.
+global.Date.now = () => new RD(...global.__TODAY).getTime();
 
 // ── tiny assertion framework ──────────────────────────────────────────────
 let pass = 0, fail = 0, section = '';
@@ -45,6 +48,7 @@ const code = fs.readFileSync('ansh.js', 'utf8') + `
 ;global.__api = {
   reset(){ localStorage.removeItem(STORAGE_KEY); STATE = loadState(); invalidatePlan(); },
   setToday(y,m,d){ global.__TODAY=[y,m-1,d]; invalidatePlan(); },
+  setUser(u){ CURRENT_USER = u; },
   g:{ WEEKS, STREAMS, TRACK_DEFS, GFG_MODULES, SLOT_H, HANDOVER, PLAN_START, PLAN_END, GFG_DAILY_VIDEO_H, SQL_DAILY_H },
   f:{ getPlan, invalidatePlan, assignmentFor, streamForSlot, slotMeta, toggleSlot, setTrackTopic,
       toggleModule, toggleTopic, toggleVideo, renderToday, renderWeeks, showWeek, renderGFG, renderTrackTab, renderBudget,
@@ -52,7 +56,9 @@ const code = fs.readFileSync('ansh.js', 'utf8') + `
       isEvenDay, isJavaWeek, streamUnits, unitDone, renderWeekStrip, fmtH, resetAll, loadState, getDefaultState, courseUrlFor,
       ensureLedger, createBaseline, resetBaseline, ledgerOf, streamLedger, lateItems, recentDone, renderProgress,
       ledgerChip, gfgTopicChip, renderLateBanner, unitKey, addDays,
-      programFinish, renderFinishFlash, slipFlag },
+      programFinish, renderFinishFlash, slipFlag,
+      ensureStudyTimer, reconcileStudyTimer, startStudyTimer, stopStudyTimer, timerCurrentSec,
+      renderTimer, fmtDur, fmtClock, yesterdayStr, dayEndMs },
   get state(){ return STATE; },
 };`;
 eval(code);
@@ -1023,6 +1029,95 @@ t('the flash banner always renders a date, and completion when all done', () => 
   f.renderFinishFlash();
   ok(getEl('finish-flash').innerHTML.indexOf('complete') >= 0, 'shows complete when nothing is open');
 });
+global.__api.setToday(2026, 8, 24);
+
+// ───────────────────────────────────────────────────────────────────────────
+S('15. Study timer — click-driven, per-day, midnight finalize');
+
+t('default state carries an empty study timer', () => {
+  R(); global.__api.setToday(2026, 8, 24);
+  const st = global.__api.state.studyTimer;
+  ok(st && typeof st === 'object', 'studyTimer exists');
+  eq(st.date, '2026-08-24', 'dated to today');
+  eq(st.accumulatedSec, 0, 'starts at zero');
+  eq(st.running, false, 'not running');
+  eq(Object.keys(st.log).length, 0, 'no history');
+});
+
+t('Start then Stop flips running, never auto-starts/stops', () => {
+  R(); global.__api.setToday(2026, 8, 24); global.__api.setUser({uid:'u1'});
+  f.startStudyTimer();
+  ok(global.__api.state.studyTimer.running === true, 'running after a click');
+  ok(typeof global.__api.state.studyTimer.startedAt === 'number', 'has a start stamp');
+  f.stopStudyTimer();
+  ok(global.__api.state.studyTimer.running === false, 'stopped after a click');
+  eq(global.__api.state.studyTimer.startedAt, null, 'start stamp cleared');
+  global.__api.setUser(null);
+});
+
+t('a click is required — no user, no start', () => {
+  R(); global.__api.setToday(2026, 8, 24); global.__api.setUser(null);
+  f.startStudyTimer();
+  eq(global.__api.state.studyTimer.running, false, 'start is a no-op without a signed-in user');
+});
+
+t('midnight finalizes the day into history and resets the counter', () => {
+  R(); global.__api.setToday(2026, 8, 24);
+  const st = global.__api.state.studyTimer;
+  st.date = '2026-08-24';
+  st.accumulatedSec = 3600;
+  st.sessions = [{start: 1, end: 2, sec: 3600}];
+  global.__api.setToday(2026, 8, 25);
+  const changed = f.reconcileStudyTimer(global.__api.state);
+  ok(changed, 'reconcile reports a rollover');
+  eq(global.__api.state.studyTimer.log['2026-08-24'].total, 3600, 'yesterday banked to history');
+  eq(global.__api.state.studyTimer.log['2026-08-24'].sessions.length, 1, 'with its sessions');
+  eq(global.__api.state.studyTimer.date, '2026-08-25', 'rolled to the new day');
+  eq(global.__api.state.studyTimer.accumulatedSec, 0, 'counter reset to zero');
+  eq(global.__api.state.studyTimer.sessions.length, 0, 'sessions cleared');
+});
+
+t('a timer running at midnight banks up to midnight, then stops (fresh click next day)', () => {
+  R(); global.__api.setToday(2026, 8, 24);
+  const st = global.__api.state.studyTimer;
+  st.date = '2026-08-24';
+  // started one hour before the midnight that ends Aug 24; reconcile closes the
+  // interval at that midnight (simulated now = midnight of the new day)
+  st.running = true;
+  st.startedAt = f.dayEndMs('2026-08-24') - 3600 * 1000;
+  st.accumulatedSec = 0;
+  global.__api.setToday(2026, 8, 25);
+  f.reconcileStudyTimer(global.__api.state);
+  eq(global.__api.state.studyTimer.log['2026-08-24'].total, 3600, 'the pre-midnight hour is banked to Aug 24');
+  eq(global.__api.state.studyTimer.running, false, 'the timer is stopped for the new day');
+  eq(global.__api.state.studyTimer.accumulatedSec, 0, 'the new day starts empty');
+});
+
+t('an empty day just rolls forward — no phantom history entry', () => {
+  R(); global.__api.setToday(2026, 8, 24);
+  global.__api.state.studyTimer.date = '2026-08-24';
+  global.__api.setToday(2026, 8, 25);
+  f.reconcileStudyTimer(global.__api.state);
+  ok(!global.__api.state.studyTimer.log['2026-08-24'], 'a day with no study logs nothing');
+  eq(global.__api.state.studyTimer.date, '2026-08-25', 'still advances the date');
+});
+
+t('yesterday is the benchmark and the timer tab renders it', () => {
+  R(); global.__api.setToday(2026, 8, 25); global.__api.setUser({uid:'u1'});
+  global.__api.state.studyTimer.log['2026-08-24'] = {total: 7200, sessions: [{start:1,end:2,sec:7200}]};
+  f.renderTimer();
+  const h = getEl('panel-timer').innerHTML;
+  ok(h.indexOf('Yesterday') >= 0, 'labels the yesterday benchmark');
+  ok(h.indexOf('2h') >= 0, 'shows the 2h benchmark total');
+  ok(h.indexOf('Daily history') >= 0, 'has a daily history section');
+  global.__api.setUser(null); global.__api.setToday(2026, 8, 24);
+});
+
+t('fmtDur / fmtClock format sensibly', () => {
+  eq(f.fmtDur(0), '0s'); eq(f.fmtDur(90), '1m'); eq(f.fmtDur(3600), '1h'); eq(f.fmtDur(5400), '1h 30m');
+  eq(f.fmtClock(0), '0:00'); eq(f.fmtClock(65), '1:05'); eq(f.fmtClock(3665), '1:01:05');
+});
+
 global.__api.setToday(2026, 8, 24);
 
 // ══════════════════════════════════════════════════════════════════════════

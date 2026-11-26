@@ -332,6 +332,58 @@ body::before{content:"";position:fixed;inset:0;background:radial-gradient(circle
 #signin-card .sc-sub{font-size:12.5px;color:var(--dim);line-height:1.5;margin-bottom:24px}
 #signin-google-btn{display:flex;align-items:center;gap:10px;padding:12px 18px;border-radius:9px;border:1px solid var(--line);background:var(--surface2);cursor:pointer;font-size:13.5px;font-weight:600;color:var(--text);width:100%;justify-content:center;transition:all 0.15s}
 #signin-google-btn:hover{border-color:var(--accent)}
+
+/* Study timer */
+.timer-mono{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums}
+.timer-strip{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:11px 14px;margin-bottom:12px}
+.timer-strip.running{border-color:var(--accent);box-shadow:inset 0 0 0 1px rgba(212,163,115,0.25)}
+.timer-strip-main{display:flex;align-items:center;gap:10px;min-width:0}
+.timer-strip .timer-clock-live{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;font-size:22px;font-weight:700;color:var(--text);letter-spacing:0.02em}
+.timer-strip-meta{font-size:10px;color:var(--dim);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.08em}
+.timer-strip-right{display:flex;align-items:center;gap:12px;flex-shrink:0}
+.timer-bench{font-size:9.5px;color:var(--dim);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.06em;text-align:right;line-height:1.5}
+.timer-bench b{color:var(--muted);font-size:12px}
+.timer-dot{width:9px;height:9px;border-radius:50%;background:var(--line);flex-shrink:0}
+.timer-strip.running .timer-dot,.timer-hero.running .timer-dot{background:#e0533b;animation:timer-pulse 1.3s ease-in-out infinite}
+@keyframes timer-pulse{0%,100%{opacity:0.35;transform:scale(0.85)}50%{opacity:1;transform:scale(1)}}
+.timer-btn{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;padding:8px 16px;border-radius:7px;border:1px solid var(--line);cursor:pointer;white-space:nowrap;transition:all 0.15s;letter-spacing:0.04em}
+.timer-btn.start{background:var(--accent);border-color:var(--accent);color:#1a0f00}
+.timer-btn.start:hover{filter:brightness(1.08)}
+.timer-btn.stop{background:rgba(224,83,59,0.14);border-color:rgba(224,83,59,0.5);color:#e0533b}
+.timer-btn.stop:hover{background:rgba(224,83,59,0.22)}
+.timer-hero{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:26px 20px;margin-bottom:12px;text-align:center}
+.timer-hero.running{border-color:var(--accent)}
+.timer-hero-top{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:6px}
+.timer-hero-status{font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:var(--dim)}
+.timer-hero.running .timer-hero-status{color:#e0533b}
+.timer-clock-big{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;font-size:52px;font-weight:700;color:var(--text);letter-spacing:0.02em;line-height:1.1;margin:4px 0 2px}
+.timer-hero-vs{font-size:12px;color:var(--muted);margin:8px 0 18px;font-family:'JetBrains Mono',monospace}
+.timer-hero-vs.ahead{color:#5fb98a}.timer-hero-vs.behind{color:#e9a23b}
+.timer-hero-btn{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;padding:13px 40px;border-radius:9px;border:1px solid var(--line);cursor:pointer;transition:all 0.15s;letter-spacing:0.04em}
+.timer-hero-btn.start{background:var(--accent);border-color:var(--accent);color:#1a0f00}
+.timer-hero-btn.start:hover{filter:brightness(1.08)}
+.timer-hero-btn.stop{background:rgba(224,83,59,0.14);border-color:rgba(224,83,59,0.5);color:#e0533b}
+.timer-hero-btn.stop:hover{background:rgba(224,83,59,0.22)}
+.timer-hero-hint{font-size:10.5px;color:var(--dim);margin-top:14px;line-height:1.5}
+.timer-bars{display:flex;flex-direction:column;gap:9px}
+.timer-bar-row{display:flex;align-items:center;gap:10px}
+.timer-bar-lbl{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dim);width:72px;flex-shrink:0;text-transform:uppercase;letter-spacing:0.06em}
+.timer-bar-track{flex:1;height:14px;background:var(--surface2);border:1px solid var(--line2);border-radius:7px;overflow:hidden}
+.timer-bar-fill{height:100%;border-radius:7px;transition:width 0.3s}
+.timer-bar-fill.today{background:var(--accent)}
+.timer-bar-fill.bench{background:var(--line)}
+.timer-bar-val{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);width:60px;text-align:right;flex-shrink:0}
+.ts-session{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 9px;border:1px solid var(--line2);border-radius:6px;margin-top:6px;font-family:'JetBrains Mono',monospace;font-size:11px}
+.ts-session-time{color:var(--dim)}
+.ts-session-dur{color:var(--muted);font-weight:700}
+.thist-day{border:1px solid var(--line2);border-radius:8px;padding:11px 12px;margin-top:8px;background:var(--surface2)}
+.thist-day-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.thist-day-date{font-size:12.5px;font-weight:600;color:var(--text)}
+.thist-day-sub{font-size:10px;color:var(--dim);font-family:'JetBrains Mono',monospace;margin-top:1px}
+.thist-day-total{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:var(--accent)}
+.thist-sessions{margin-top:8px;display:flex;flex-wrap:wrap;gap:5px}
+.thist-chip{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--dim);background:var(--surface);border:1px solid var(--line2);border-radius:5px;padding:3px 7px}
+.timer-empty{font-size:11.5px;color:var(--dim);text-align:center;padding:18px 10px;line-height:1.6}
 </style>
 </head>
 <body>
@@ -367,6 +419,7 @@ body::before{content:"";position:fixed;inset:0;background:radial-gradient(circle
 <div class="tab-wrap">
   <div class="tab-bar">
     <button class="tb active" onclick="showTab('today',this)">Today</button>
+    <button class="tb" onclick="showTab('timer',this)">Study Timer</button>
     <button class="tb" onclick="showTab('progress',this)">Progress</button>
     <button class="tb" onclick="showTab('weeks',this)">Weeks</button>
     <button class="tb" onclick="showTab('gfg',this)">GFG Tracker</button>
@@ -382,6 +435,7 @@ body::before{content:"";position:fixed;inset:0;background:radial-gradient(circle
 </div>
 
 <div id="panel-today"  class="panel active"></div>
+<div id="panel-timer" class="panel"></div>
 <div id="panel-progress" class="panel"></div>
 <div id="panel-weeks"  class="panel"></div>
 <div id="panel-gfg"   class="panel"></div>

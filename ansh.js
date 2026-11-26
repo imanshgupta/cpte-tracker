@@ -347,7 +347,31 @@ function getDefaultState() {
   GFG_MODULES.forEach(m => m.topics.forEach(t => {
     topics[t.id] = {done:{}};
   }));
-  return {version:STATE_VERSION, gfg:{topics}, dailyChecks:{}, dailyLog:{}, tracks:getDefaultTracks(), baseline:null, doneOn:{}};
+  return {version:STATE_VERSION, gfg:{topics}, dailyChecks:{}, dailyLog:{}, tracks:getDefaultTracks(), baseline:null, doneOn:{}, studyTimer:defaultStudyTimer()};
+}
+
+// ─── STUDY TIMER STATE ─────────────────────────────────────────────────────
+// Per-account (lives in STATE, so it syncs to ansh_tracker/{uid} and caches
+// under the per-uid localStorage key — never generic across accounts).
+// Shape: { date, accumulatedSec, running, startedAt, sessions:[{start,end,sec}],
+//          log:{ 'YYYY-MM-DD': {total, sessions:[...]} } }
+// `accumulatedSec` + `sessions` belong to `date`; at midnight the day is
+// finalized into `log` and the counter resets (the timer also stops, so the
+// new day only counts after a fresh Start click).
+function defaultStudyTimer() {
+  return {date: todayStr(), accumulatedSec: 0, running: false, startedAt: null, sessions: [], log: {}};
+}
+
+function ensureStudyTimer(s) {
+  if (!s.studyTimer || typeof s.studyTimer !== 'object') s.studyTimer = defaultStudyTimer();
+  const t = s.studyTimer;
+  if (!t.date) t.date = todayStr();
+  if (typeof t.accumulatedSec !== 'number' || t.accumulatedSec < 0) t.accumulatedSec = 0;
+  if (typeof t.running !== 'boolean') t.running = false;
+  if (t.running && typeof t.startedAt !== 'number') { t.running = false; t.startedAt = null; }
+  if (!Array.isArray(t.sessions)) t.sessions = [];
+  if (!t.log || typeof t.log !== 'object') t.log = {};
+  return t;
 }
 
 // Older states (version < 4.0) stored GFG progress as vc/pc counters, which
@@ -377,6 +401,7 @@ function loadState() {
     // leave STATE.tracks.java undefined
     if (!s.tracks) s.tracks = getDefaultTracks();
     else Object.keys(getDefaultTracks()).forEach(k => { if (!s.tracks[k]) s.tracks[k] = {}; });
+    ensureStudyTimer(s);
     return migrateGfg(s);
   } catch(e) { return getDefaultState(); }
 }
@@ -1133,6 +1158,241 @@ function renderProgress() {
   el.innerHTML = html;
 }
 
+// ─── STUDY TIMER ───────────────────────────────────────────────────────────
+
+function yesterdayStr() {
+  const t = new Date(); t.setDate(t.getDate() - 1);
+  return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+}
+
+// Local epoch-ms of the midnight that ENDS dateStr (i.e. 00:00 of the next day).
+function dayEndMs(dateStr) {
+  const [y, mo, d] = dateStr.split('-').map(Number);
+  return new Date(y, mo-1, d+1, 0, 0, 0, 0).getTime();
+}
+
+function fmtClock(sec) {
+  sec = Math.max(0, Math.round(sec));
+  const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+  return (h > 0 ? h + ':' + String(m).padStart(2,'0') : String(m)) + ':' + String(s).padStart(2,'0');
+}
+
+function fmtDur(sec) {
+  sec = Math.max(0, Math.round(sec));
+  const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60);
+  if (h > 0) return m > 0 ? h + 'h ' + m + 'm' : h + 'h';
+  if (m > 0) return m + 'm';
+  return sec + 's';
+}
+
+function fmtTimeOfDay(ms) {
+  return new Date(ms).toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
+}
+
+// Seconds studied so far today = banked intervals + the live interval if running.
+function timerCurrentSec() {
+  const t = STATE.studyTimer;
+  if (!t) return 0;
+  let sec = t.accumulatedSec || 0;
+  if (t.running && t.startedAt) sec += Math.max(0, (Date.now() - t.startedAt) / 1000);
+  return sec;
+}
+
+// Roll the day over at midnight: finalize the prior day into `log` and reset.
+// If the timer was running across midnight, the running interval is banked only
+// up to that day's midnight (never crediting hours while the app sat closed),
+// then the timer is STOPPED so the new day starts fresh on a click. Returns
+// true if anything changed (caller persists).
+function reconcileStudyTimer(s) {
+  const t = ensureStudyTimer(s);
+  const today = todayStr();
+  if (t.date === today) return false;
+
+  // Close out the running interval at the prior day's midnight.
+  if (t.running && t.startedAt) {
+    const end = Math.min(dayEndMs(t.date), Date.now());
+    const sec = Math.max(0, Math.round((end - t.startedAt) / 1000));
+    if (sec > 0) { t.sessions.push({start: t.startedAt, end, sec}); t.accumulatedSec += sec; }
+  }
+  // Persist the finalized day (only if it had activity).
+  if (t.accumulatedSec > 0 || t.sessions.length) {
+    t.log[t.date] = {total: Math.round(t.accumulatedSec), sessions: t.sessions.slice()};
+  }
+  // Reset for the new day — a fresh Start click is required.
+  t.date = today;
+  t.accumulatedSec = 0;
+  t.sessions = [];
+  t.running = false;
+  t.startedAt = null;
+  return true;
+}
+
+function startStudyTimer() {
+  if (!CURRENT_USER) return;
+  reconcileStudyTimer(STATE);
+  const t = STATE.studyTimer;
+  if (t.running) return;
+  t.running = true;
+  t.startedAt = Date.now();
+  saveState(STATE);
+  rerenderTimerPanels();
+  ensureTimerTick();
+}
+
+function stopStudyTimer() {
+  if (!CURRENT_USER) return;
+  reconcileStudyTimer(STATE);
+  const t = STATE.studyTimer;
+  if (!t.running) return;
+  const end = Date.now();
+  const sec = Math.max(0, Math.round((end - t.startedAt) / 1000));
+  if (sec > 0) { t.sessions.push({start: t.startedAt, end, sec}); t.accumulatedSec += sec; }
+  t.running = false;
+  t.startedAt = null;
+  saveState(STATE);
+  rerenderTimerPanels();
+  ensureTimerTick();
+}
+
+function rerenderTimerPanels() {
+  if (document.getElementById('panel-today') && CURRENT_TAB === 'today') renderToday();
+  if (document.getElementById('panel-timer') && CURRENT_TAB === 'timer') renderTimer();
+}
+
+// ── Live tick: updates the on-screen clock every second while running, and
+//    catches a midnight rollover live (the only moment the tick writes state).
+let _timerTick = null;
+function ensureTimerTick() {
+  const running = STATE.studyTimer && STATE.studyTimer.running;
+  if (running && !_timerTick) {
+    _timerTick = setInterval(timerTickFn, 1000);
+  } else if (!running && _timerTick) {
+    clearInterval(_timerTick); _timerTick = null;
+  }
+}
+function timerTickFn() {
+  if (reconcileStudyTimer(STATE)) {   // midnight crossed while open
+    saveState(STATE);
+    rerenderTimerPanels();
+    ensureTimerTick();
+    return;
+  }
+  updateTimerDisplays();
+}
+function updateTimerDisplays() {
+  const sec = timerCurrentSec();
+  const clock = fmtClock(sec);
+  document.querySelectorAll('.timer-clock-live').forEach(e => { e.textContent = clock; });
+  const t = STATE.studyTimer;
+  const yTotal = (t && t.log[yesterdayStr()] && t.log[yesterdayStr()].total) || 0;
+  document.querySelectorAll('.timer-vs-live').forEach(e => {
+    e.className = 'timer-vs-live ' + timerVsClass(sec, yTotal);
+    e.textContent = timerVsText(sec, yTotal);
+  });
+}
+
+function timerVsClass(sec, yTotal) {
+  if (!yTotal) return '';
+  return sec >= yTotal ? 'ahead' : 'behind';
+}
+function timerVsText(sec, yTotal) {
+  if (!yTotal) return 'No study logged yesterday to beat';
+  const d = Math.round(sec - yTotal);
+  return d >= 0 ? '▲ ' + fmtDur(d) + ' past yesterday' : '▼ ' + fmtDur(-d) + ' to beat yesterday';
+}
+
+// Compact strip shown at the top of the Today tab.
+function timerStripHTML() {
+  const t = STATE.studyTimer;
+  const sec = timerCurrentSec();
+  const yTotal = (t.log[yesterdayStr()] && t.log[yesterdayStr()].total) || 0;
+  const running = t.running;
+  return `<div class="timer-strip ${running ? 'running' : ''}">
+    <div class="timer-strip-main">
+      <div class="timer-dot"></div>
+      <div class="timer-clock-live timer-mono">${fmtClock(sec)}</div>
+      <div class="timer-strip-meta">studied today${running ? ' · recording' : ''}</div>
+    </div>
+    <div class="timer-strip-right">
+      <div class="timer-bench">Yesterday<br><b>${yTotal ? fmtDur(yTotal) : '—'}</b></div>
+      <button class="timer-btn ${running ? 'stop' : 'start'}" onclick="${running ? 'stopStudyTimer()' : 'startStudyTimer()'}">${running ? '■ Stop' : '▶ Start'}</button>
+    </div>
+  </div>`;
+}
+
+function renderTimer() {
+  const el = document.getElementById('panel-timer');
+  if (!el) return;
+  if (reconcileStudyTimer(STATE)) saveState(STATE);
+  const t = STATE.studyTimer;
+  const sec = timerCurrentSec();
+  const running = t.running;
+  const yTotal = (t.log[yesterdayStr()] && t.log[yesterdayStr()].total) || 0;
+
+  // Today-vs-yesterday bars (scaled to the larger of the two).
+  const scale = Math.max(sec, yTotal, 1);
+  const bars = `<div class="card"><div class="lbl">Today vs yesterday</div><div class="timer-bars">
+    <div class="timer-bar-row"><div class="timer-bar-lbl">Today</div>
+      <div class="timer-bar-track"><div class="timer-bar-fill today" style="width:${Math.min(100, sec/scale*100).toFixed(1)}%"></div></div>
+      <div class="timer-bar-val timer-clock-live">${fmtClock(sec)}</div></div>
+    <div class="timer-bar-row"><div class="timer-bar-lbl">Yesterday</div>
+      <div class="timer-bar-track"><div class="timer-bar-fill bench" style="width:${Math.min(100, yTotal/scale*100).toFixed(1)}%"></div></div>
+      <div class="timer-bar-val">${yTotal ? fmtDur(yTotal) : '—'}</div></div>
+  </div></div>`;
+
+  // Today's completed sessions (most recent first).
+  const todaySessions = (t.sessions || []).slice().reverse();
+  const sessionsCard = todaySessions.length
+    ? `<div class="card"><div class="lbl">Today's sessions · ${todaySessions.length}</div>
+        ${todaySessions.map(se => `<div class="ts-session">
+          <span class="ts-session-time">${fmtTimeOfDay(se.start)} → ${fmtTimeOfDay(se.end)}</span>
+          <span class="ts-session-dur">${fmtDur(se.sec)}</span></div>`).join('')}
+        ${running ? `<div class="ts-session" style="border-style:dashed">
+          <span class="ts-session-time">${fmtTimeOfDay(t.startedAt)} → now</span>
+          <span class="ts-session-dur timer-clock-live">${fmtClock(Math.max(0,(Date.now()-t.startedAt)/1000))}</span></div>` : ''}
+      </div>`
+    : (running
+        ? `<div class="card"><div class="lbl">Today's sessions</div><div class="ts-session" style="border-style:dashed">
+            <span class="ts-session-time">${fmtTimeOfDay(t.startedAt)} → now</span>
+            <span class="ts-session-dur timer-clock-live">${fmtClock(Math.max(0,(Date.now()-t.startedAt)/1000))}</span></div></div>`
+        : '');
+
+  // History: finalized past days, newest first.
+  const days = Object.keys(t.log).filter(d => d !== todayStr() && t.log[d] && t.log[d].total > 0).sort().reverse();
+  const histCard = `<div class="card"><div class="lbl">Daily history</div>${
+    days.length ? days.map(d => {
+      const e = t.log[d];
+      const sess = (e.sessions || []).slice().sort((a,b) => a.start - b.start);
+      return `<div class="thist-day">
+        <div class="thist-day-head">
+          <div><div class="thist-day-date">${fmtDate(d)}</div>
+            <div class="thist-day-sub">${dayName(d)}${d === yesterdayStr() ? ' · benchmark' : ''} · ${sess.length} session${sess.length===1?'':'s'}</div></div>
+          <div class="thist-day-total">${fmtDur(e.total)}</div>
+        </div>
+        ${sess.length ? `<div class="thist-sessions">${sess.map(se => `<span class="thist-chip">${fmtTimeOfDay(se.start)}–${fmtTimeOfDay(se.end)} · ${fmtDur(se.sec)}</span>`).join('')}</div>` : ''}
+      </div>`;
+    }).join('')
+    : `<div class="timer-empty">No earlier days logged yet.<br>Finished days land here automatically — the clock finalizes and resets at midnight.</div>`
+  }</div>`;
+
+  el.innerHTML = `
+    <div class="timer-hero ${running ? 'running' : ''}">
+      <div class="timer-hero-top"><div class="timer-dot"></div>
+        <div class="timer-hero-status">${running ? 'Recording' : 'Stopped'}</div></div>
+      <div class="timer-clock-big timer-clock-live">${fmtClock(sec)}</div>
+      <div class="timer-vs-live ${timerVsClass(sec, yTotal)}" style="font-size:12px;font-family:'JetBrains Mono',monospace;margin:8px 0 18px">${timerVsText(sec, yTotal)}</div>
+      <button class="timer-hero-btn ${running ? 'stop' : 'start'}" onclick="${running ? 'stopStudyTimer()' : 'startStudyTimer()'}">${running ? '■ Stop' : '▶ Start'}</button>
+      <div class="timer-hero-hint">${running
+        ? 'Running. Click Stop when you break — it banks the time and resumes on the next Start. Never stops on its own until midnight.'
+        : 'Click Start when you sit to study. Stacks across the day; resets and logs automatically at midnight.'}</div>
+    </div>
+    ${bars}
+    ${sessionsCard}
+    ${histCard}`;
+
+  ensureTimerTick();
+}
+
 // ─── TABS ──────────────────────────────────────────────────────────────────
 
 function showTab(id, btn) {
@@ -1147,6 +1407,7 @@ function showTab(id, btn) {
       || (typeof event !== 'undefined' && event.target);
   if (tabBtn && tabBtn.classList) tabBtn.classList.add('active');
   if (id === 'today')  renderToday();
+  if (id === 'timer')  renderTimer();
   if (id === 'progress') renderProgress();
   if (id === 'weeks')  renderWeeks();
   if (id === 'gfg')    renderGFG();
@@ -1172,6 +1433,8 @@ function trackBadge(track, label) {
 function renderToday() {
   const today = todayStr();
   const el = document.getElementById('panel-today');
+  if (reconcileStudyTimer(STATE)) saveState(STATE);
+  ensureTimerTick();
 
   if (today < PLAN_START) {
     const days = daysBetween(today, PLAN_START);
@@ -1215,6 +1478,7 @@ function renderToday() {
   updatePill(`Day ${dayNum} of ${totalDays}`);
 
   el.innerHTML = `
+    ${timerStripHTML()}
     <div class="today-banner">
       <div class="tb-phase">● ACTIVE · WEEK ${week.wn} · ${week.phase.toUpperCase()}</div>
       <div class="tb-date">${fmtDate(today)}</div>
@@ -1911,6 +2175,7 @@ function applyRemoteState(remote) {
   if (!remote.gfg) remote.gfg = getDefaultState().gfg;
   if (!remote.tracks) remote.tracks = getDefaultTracks();
   else Object.keys(getDefaultTracks()).forEach(k => { if (!remote.tracks[k]) remote.tracks[k] = {}; });
+  ensureStudyTimer(remote);
   STATE = migrateGfg(remote);
   invalidatePlan();
   localStorage.setItem(activeStorageKey(), JSON.stringify(STATE));
