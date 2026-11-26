@@ -1,0 +1,30 @@
+rules_version = '2';
+
+// Firestore security rules for TrackerApp.
+//
+// This file is the source of truth — but Firestore only enforces what is
+// published in the Firebase console (Firestore → Rules → Publish). After
+// editing here, paste the contents into the console and publish, or deploy
+// with `firebase deploy --only firestore:rules` if the Firebase CLI is set up.
+//
+// Each user may read/write ONLY their own data. The study timer writes to
+// subcollections under the user's doc (ansh_tracker/{uid}/study/live and
+// ansh_tracker/{uid}/studyDays/{date}), so the ansh_tracker block uses a
+// recursive `{document=**}` match to cover the document AND everything beneath
+// it — a rule matching only ansh_tracker/{uid} would deny those timer writes.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /ansh_tracker/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // study/live (live timer) + studyDays/{date} (per-day history)
+      match /{document=**} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+  }
+}

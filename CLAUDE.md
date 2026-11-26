@@ -35,6 +35,7 @@ Harness for `ansh.js` only: stubs DOM, `localStorage`, and `Date` (pinned to pla
 | `service-worker.js` | Cache-first offline cache shared by all pages |
 | `icons/` | `icon-192.png`, `icon-512.png` (committed) |
 | `test-ansh.js` | Node test harness for `ansh.js` |
+| `firestore.rules` | Firestore security rules (source of truth; must be published in the console to take effect) |
 | `*.xlsx` | Source data for Ansh's course lists (GFG videos, MySQL bootcamp) |
 
 ## Architecture — Ansh tracker (`ansh.js`)
